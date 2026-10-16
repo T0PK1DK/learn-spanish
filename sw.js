@@ -1,5 +1,5 @@
 const CACHE = "habla-v1";
-const FILES = ["./", "index.html", "manifest.json", "icon.svg"];
+const FILES = ["./", "index.html", "sets.js", "app.js", "manifest.json", "icon.svg"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
