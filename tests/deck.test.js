@@ -44,6 +44,31 @@ test("due filter orders soonest first", () => {
   assert.ok(deck[0].card.due <= deck[1].card.due);
 });
 
+test("due filter still shows a mastered card when it is due again", () => {
+  const save = emptySave(NOW);
+  save.set = "Greetings";
+  save.filter = "due";
+  save.cards["Greetings::Hola"] = {
+    ease: 2.6,
+    interval: 30,
+    reps: 6,
+    lapses: 0,
+    due: NOW - 1000,
+    learning: false
+  };
+  save.cards["Greetings::Gracias"] = {
+    ease: 2.6,
+    interval: 30,
+    reps: 6,
+    lapses: 0,
+    due: NOW + 40 * 24 * 60 * 60 * 1000,
+    learning: false
+  };
+  const deck = buildDeck(save, NOW);
+  assert.ok(deck.some((word) => word.es === "Hola"));
+  assert.ok(deck.every((word) => word.es !== "Gracias"));
+});
+
 test("clampIndex wraps a spent pile back to the start", () => {
   assert.equal(clampIndex(9, 4), 0);
   assert.equal(clampIndex(-2, 4), 0);

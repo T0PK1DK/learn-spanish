@@ -4,12 +4,14 @@ import { GRADE } from "../js/srs.js";
 import {
   applyReview,
   awardPlaza,
+  canUndo,
   emptySave,
   migrateLegacy,
   parseImport,
   persistSave,
   sanitizeSave,
-  statsFor
+  statsFor,
+  undoLastReview
 } from "../js/store.js";
 
 const NOW = Date.parse("2026-10-21T15:00:00Z");
@@ -104,4 +106,77 @@ test("awardPlaza reviews each object once", () => {
   const save = awardPlaza(emptySave(NOW), ["Café::Un café, por favor", "Café::Agua, por favor"], NOW, DAY);
   assert.equal(save.reviews.length, 2);
   assert.equal(save.todayReviews, 2);
+});
+
+test("applyReview stores a card snapshot so undo can restore ease", () => {
+  let save = emptySave(NOW);
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, DAY);
+  const afterGood = save.cards["Greetings::Hola"];
+  save = applyReview(save, "Greetings::Hola", GRADE.again, NOW + 1000, DAY);
+  assert.equal(save.cards["Greetings::Hola"].reps, 0);
+  assert.equal(save.cards["Greetings::Hola"].learning, true);
+  assert.equal(canUndo(save), true);
+  save = undoLastReview(save);
+  assert.deepEqual(save.cards["Greetings::Hola"], afterGood);
+  assert.equal(save.todayReviews, 1);
+  assert.equal(save.reviews.length, 1);
+});
+
+test("undo of a first review removes the new card and habit counters", () => {
+  let save = emptySave(NOW);
+  save = applyReview(save, "Greetings::Hola", GRADE.easy, NOW, DAY);
+  assert.equal(save.xp > 0, true);
+  save = undoLastReview(save);
+  assert.equal(save.cards["Greetings::Hola"], undefined);
+  assert.equal(save.xp, 0);
+  assert.equal(save.todayReviews, 0);
+  assert.equal(save.streak, 0);
+  assert.equal(save.lastStudyDay, "");
+  assert.equal(canUndo(save), false);
+});
+
+test("legacy review events without a previous snapshot cannot undo", () => {
+  const save = emptySave(NOW);
+  save.cards["Greetings::Hola"] = { ease: 2.6, interval: 6, reps: 2, lapses: 0, due: NOW, learning: false };
+  save.reviews = [{ id: "Greetings::Hola", quality: GRADE.good, at: NOW }];
+  assert.equal(canUndo(save), false);
+  const same = undoLastReview(save);
+  assert.equal(same.cards["Greetings::Hola"].ease, 2.6);
+});
+
+test("sanitizeSave keeps a null previous snapshot", () => {
+  const save = sanitizeSave({
+    version: 2,
+    updatedAt: NOW,
+    reviews: [{ id: "Greetings::Hola", quality: 4, at: NOW, previous: null, snapshot: { xp: 0, todayXp: 0, todayReviews: 0, streak: 0, lastStudyDay: "", index: 0 } }]
+  }, NOW);
+  assert.equal(save.reviews[0].previous, null);
+  assert.equal(canUndo(save), true);
+});
+
+test("a stale tab persist keeps newer reviews from the other tab", () => {
+  const storage = memoryStorage();
+  const first = persistSave(emptySave(NOW), storage, NOW);
+  let reviewed = applyReview(first, "Greetings::Hola", GRADE.good, NOW, DAY);
+  reviewed = persistSave(reviewed, storage, NOW + 1000);
+  const stale = { ...first, filter: "all", updatedAt: NOW };
+  const written = persistSave(stale, storage, NOW + 2000);
+  assert.ok(written.cards["Greetings::Hola"]);
+  assert.equal(written.filter, "all");
+  assert.equal(written.reviews.length, 1);
+});
+
+test("stats count a mastered card as due when its time has come", () => {
+  const save = emptySave(NOW);
+  save.cards["Greetings::Hola"] = {
+    ease: 2.6,
+    interval: 30,
+    reps: 6,
+    lapses: 0,
+    due: NOW - 1000,
+    learning: false
+  };
+  const stats = statsFor(save, NOW, DAY);
+  assert.equal(stats.mastered, 1);
+  assert.ok(stats.due >= 1);
 });

@@ -18,7 +18,7 @@ export function buildDeck(save, now = Date.now()) {
     return weak.length ? weak : phrases;
   }
   const reviews = phrases
-    .filter((word) => word.card && word.due && !word.mastered)
+    .filter((word) => word.card && word.due)
     .sort((a, b) => a.card.due - b.card.due);
   const unseen = phrases.filter((word) => !word.card);
   const pile = reviews.concat(unseen);

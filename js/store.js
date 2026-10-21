@@ -48,6 +48,41 @@ export function migrateLegacy(legacy, now = Date.now()) {
   return save;
 }
 
+export function snapshotCard(card) {
+  if (!card || typeof card !== "object") return null;
+  return {
+    ease: Number(card.ease) > 0 ? Number(card.ease) : 2.5,
+    interval: Math.max(0, Number(card.interval) || 0),
+    reps: Math.max(0, Math.floor(Number(card.reps) || 0)),
+    lapses: Math.max(0, Math.floor(Number(card.lapses) || 0)),
+    due: Number.isFinite(Number(card.due)) ? Number(card.due) : 0,
+    learning: Boolean(card.learning)
+  };
+}
+
+function sanitizeReviewEvent(event) {
+  if (!event || typeof event.id !== "string" || !Number.isFinite(Number(event.at))) return null;
+  const next = {
+    id: event.id,
+    quality: Number.isFinite(Number(event.quality)) ? Number(event.quality) : GRADE.good,
+    at: Number(event.at)
+  };
+  if (Object.hasOwn(event, "previous")) {
+    next.previous = event.previous === null ? null : snapshotCard(event.previous);
+  }
+  if (event.snapshot && typeof event.snapshot === "object") {
+    next.snapshot = {
+      lastStudyDay: /^\d{4}-\d{2}-\d{2}$/.test(event.snapshot.lastStudyDay || "") ? event.snapshot.lastStudyDay : "",
+      streak: Math.max(0, Math.floor(Number(event.snapshot.streak) || 0)),
+      todayReviews: Math.max(0, Math.floor(Number(event.snapshot.todayReviews) || 0)),
+      todayXp: Math.max(0, Math.floor(Number(event.snapshot.todayXp) || 0)),
+      xp: Math.max(0, Math.floor(Number(event.snapshot.xp) || 0)),
+      index: Math.max(0, Math.floor(Number(event.snapshot.index) || 0))
+    };
+  }
+  return next;
+}
+
 export function sanitizeSave(raw, now = Date.now()) {
   const base = emptySave(now);
   if (!raw || typeof raw !== "object") return base;
@@ -72,25 +107,15 @@ export function sanitizeSave(raw, now = Date.now()) {
     cards: {},
     reviews: [],
     version: CURRENT_VERSION,
-    updatedAt: now
+    updatedAt: Number.isFinite(Number(incoming.updatedAt)) ? Number(incoming.updatedAt) : now
   };
   const cards = incoming.cards && typeof incoming.cards === "object" ? incoming.cards : {};
   for (const [id, card] of Object.entries(cards)) {
     if (typeof id !== "string" || !id.includes("::") || !card || typeof card !== "object") continue;
-    save.cards[id] = {
-      ...newCardState(0),
-      ease: Number(card.ease) > 0 ? Number(card.ease) : 2.5,
-      interval: Math.max(0, Number(card.interval) || 0),
-      reps: Math.max(0, Math.floor(Number(card.reps) || 0)),
-      lapses: Math.max(0, Math.floor(Number(card.lapses) || 0)),
-      due: Number.isFinite(Number(card.due)) ? Number(card.due) : 0,
-      learning: Boolean(card.learning)
-    };
+    save.cards[id] = snapshotCard(card);
   }
   if (Array.isArray(incoming.reviews)) {
-    save.reviews = incoming.reviews
-      .filter((event) => event && typeof event.id === "string" && Number.isFinite(Number(event.at)))
-      .slice(-400);
+    save.reviews = incoming.reviews.map(sanitizeReviewEvent).filter(Boolean).slice(-400);
   }
   return save;
 }
@@ -107,8 +132,32 @@ export function loadSave(storage = globalThis.localStorage, now = Date.now()) {
   return emptySave(now);
 }
 
+export function readStoredSave(storage = globalThis.localStorage, now = Date.now()) {
+  try {
+    const fresh = storage?.getItem(STORAGE_KEY);
+    if (fresh) return sanitizeSave(JSON.parse(fresh), now);
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function takeRemoteIfNewer(local, storage = globalThis.localStorage, now = Date.now()) {
+  const stored = readStoredSave(storage, now);
+  if (!stored || Number(stored.updatedAt || 0) <= Number(local.updatedAt || 0)) return local;
+  return {
+    ...stored,
+    displayName: local.displayName,
+    set: local.set,
+    index: local.index,
+    mode: local.mode,
+    filter: local.filter
+  };
+}
+
 export function persistSave(save, storage = globalThis.localStorage, now = Date.now()) {
-  const next = { ...save, version: CURRENT_VERSION, updatedAt: now };
+  const incoming = takeRemoteIfNewer(save, storage, now);
+  const next = { ...incoming, version: CURRENT_VERSION, updatedAt: now };
   storage?.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
 }
@@ -135,14 +184,49 @@ export function cardFor(save, id, now = Date.now()) {
 
 export function applyReview(save, id, quality, now = Date.now(), day = localDayKey()) {
   const gained = xpForGrade(quality);
+  const previous = save.cards[id] ? snapshotCard(save.cards[id]) : null;
+  const snapshot = {
+    lastStudyDay: save.lastStudyDay,
+    streak: save.streak,
+    todayReviews: save.todayReviews,
+    todayXp: save.todayXp,
+    xp: save.xp,
+    index: save.index
+  };
   const nextCard = review(cardFor(save, id, now), quality, now);
   return stampStudyDay({
     ...save,
     cards: { ...save.cards, [id]: nextCard },
     xp: save.xp + gained,
     todayXp: (save.lastStudyDay === day ? save.todayXp : 0) + gained,
-    reviews: [...save.reviews, { id, quality, at: now }].slice(-400)
+    reviews: [...save.reviews, { id, quality, at: now, previous, snapshot }].slice(-400),
+    updatedAt: now
   }, day);
+}
+
+export function canUndo(save) {
+  const event = save?.reviews?.[save.reviews.length - 1];
+  return Boolean(event && Object.hasOwn(event, "previous"));
+}
+
+export function undoLastReview(save) {
+  if (!canUndo(save)) return save;
+  const event = save.reviews[save.reviews.length - 1];
+  const cards = { ...save.cards };
+  if (event.previous) cards[event.id] = snapshotCard(event.previous);
+  else delete cards[event.id];
+  const snap = event.snapshot || {};
+  return {
+    ...save,
+    cards,
+    xp: Number.isFinite(snap.xp) ? snap.xp : save.xp,
+    todayXp: Number.isFinite(snap.todayXp) ? snap.todayXp : save.todayXp,
+    todayReviews: Number.isFinite(snap.todayReviews) ? snap.todayReviews : save.todayReviews,
+    lastStudyDay: typeof snap.lastStudyDay === "string" ? snap.lastStudyDay : save.lastStudyDay,
+    streak: Number.isFinite(snap.streak) ? snap.streak : save.streak,
+    index: Number.isFinite(snap.index) ? snap.index : save.index,
+    reviews: save.reviews.slice(0, -1)
+  };
 }
 
 export function stampStudyDay(save, day = localDayKey()) {
@@ -186,6 +270,10 @@ export function statsFor(save, now = Date.now(), day = localDayKey()) {
     if (isMastered(card)) {
       mastered += 1;
       bucket.mastered += 1;
+      if (card.due <= now) {
+        due += 1;
+        bucket.due += 1;
+      }
       continue;
     }
     if (card.due <= now) {

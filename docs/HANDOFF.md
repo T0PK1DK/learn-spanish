@@ -18,7 +18,7 @@ Live site (only after someone deploys `main`): https://t0pk1dk.github.io/learn-s
 - `css/app.css` — warm dark UI
 - `js/data/sets.js` — phrase bank (objects with `es`, `en`, `hint`, `exampleEs`, `exampleEn`)
 - `js/srs.js` — SM-2-style scheduler (Again/Hard/Good/Easy, ease floor 1.3, 10-minute relearn)
-- `js/store.js` — load/sanitize/import, review log, streak/XP
+- `js/store.js` — load/sanitize/import, review log with undo snapshots, streak/XP, newer-tab persist
 - `js/quiz.js` — same-set, similar-length unique distractors
 - `js/speech.js` — Levenshtein + token overlap; accent-only differences pass
 - `js/deck.js` — due / learning / all
@@ -44,8 +44,18 @@ Pick one lane and finish it with tests:
 2. **More plaza missions** — hotel desk and weather street; wire missed objects into the due queue with the scene name on the card back.
 3. **FSRS option** — keep SM-2 as default (small deck). Add FSRS only if you can test it against a fixture of reviews.
 4. **Typing production in quiz** — a “type the Spanish” item type with the same scorer as Speak.
-5. **Review undo** — the store already appends a review log; add an undo that reverts the last event without corrupting ease.
+5. **Review undo** — done. `applyReview` writes `previous` + habit `snapshot`; `undoLastReview` restores them or refuses legacy events that lack `previous`. Do not recompute SM-2 backwards.
 6. **i18n of the chrome** — UI is English; leave phrase content in Latin American Spanish.
+
+## Done in this improvement pass
+
+- Review undo in the header and via `Z` / `Ctrl+Z`. Tests cover restore, first-card delete, and legacy refusal.
+- Due today includes mastered cards whose interval has elapsed. Stats match the deck.
+- Persist adopts a newer `updatedAt` from another tab so a filter-only tab cannot wipe reviews. `sanitizeSave` keeps the stored timestamp.
+- Plaza fallback markup is escaped. Mission grades refresh the header stats without remounting WebGL.
+- Mobile chrome is shorter: scrolling set chips, segmented modes/filters, 44px targets, name field under Progress. Card stays the hero, same idea as compact study screens on [Quizlet](https://mobbin.com/screens/818753de-b0a1-4e66-b033-95298fa217c4) and [Ahead](https://mobbin.com/screens/8a7ef66b-d0d9-47fb-b50b-ab77d765eb61).
+
+Remaining lanes: audio pack, more plaza missions, FSRS, typing items in Quiz, chrome i18n.
 
 ## How to verify
 

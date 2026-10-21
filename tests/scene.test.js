@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PLAZA_SCENES, describeObject, questProgress } from "../js/scene.js";
+import { PLAZA_SCENES, describeObject, fallbackMarkup, questProgress } from "../js/scene.js";
 
 test("every plaza object points at a real phrase", () => {
   for (const scene of Object.values(PLAZA_SCENES)) {
@@ -26,4 +26,13 @@ test("quest progress completes only after every step", () => {
   const done = questProgress("cafe", ["coffee", "water", "check"]);
   assert.equal(done.complete, true);
   assert.equal(done.next, null);
+});
+
+test("fallback markup escapes object labels", () => {
+  const html = fallbackMarkup({
+    id: `cafe"><img src=x>`,
+    objects: [{ key: `coffee"><img src=x>`, phraseId: "Café::Un café, por favor" }]
+  });
+  assert.equal(html.includes("<img"), false);
+  assert.match(html, /&quot;|&lt;/);
 });
