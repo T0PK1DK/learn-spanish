@@ -235,12 +235,10 @@ summary { cursor: pointer; padding: 6px 0; }
   clip: rect(0 0 0 0);
 }
 @media (max-width: 520px) {
-  .modes { overflow-x: auto; }
-  .modes button { flex: 0 0 auto; padding: 8px 10px; }
-}
-@media (max-width: 420px) {
   .es { font-size: 26px; }
   .grades { grid-template-columns: 1fr 1fr; }
+  .modes { overflow-x: auto; }
+  .modes button { flex: 0 0 auto; padding: 8px 10px; }
   .card { min-height: 160px; padding: 20px 16px 18px; }
   .plaza-host { min-height: 280px; }
   .stat { padding: 6px 6px; }
