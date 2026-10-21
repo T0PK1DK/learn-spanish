@@ -1,10 +1,10 @@
 {
   "name": "Habla",
   "short_name": "Habla",
-  "description": "A simple Latin American Spanish trainer.",
+  "description": "Latin American Spanish trainer with spaced review, listening, speaking, and a 3D plaza.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#111111",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "background_color": "#12100e",
+  "theme_color": "#12100e",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }
