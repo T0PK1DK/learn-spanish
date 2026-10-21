@@ -1,4 +1,5 @@
 import { findPhrase } from "./data/sets.js";
+import { escapeHtml } from "./util.js";
 
 export const PLAZA_SCENES = {
   cafe: {
@@ -94,17 +95,17 @@ export function questProgress(sceneId, foundKeys) {
   };
 }
 
-function fallbackMarkup(scene) {
+export function fallbackMarkup(scene) {
   const items = scene.objects
     .map((object) => {
       const item = describeObject(object);
-      return `<button type="button" class="hotspot" data-plaza-key="${item.key}">
-        <strong>${item.es}</strong>
-        <span>${item.en}</span>
+      return `<button type="button" class="hotspot" data-plaza-key="${escapeHtml(item.key)}">
+        <strong>${escapeHtml(item.es)}</strong>
+        <span>${escapeHtml(item.en)}</span>
       </button>`;
     })
     .join("");
-  return `<div class="plaza-fallback plaza-${scene.id}"><div class="hotspots">${items}</div></div>`;
+  return `<div class="plaza-fallback plaza-${escapeHtml(scene.id)}"><div class="hotspots">${items}</div></div>`;
 }
 
 function buildWorld(THREE, sceneId) {

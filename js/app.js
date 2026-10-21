@@ -3,7 +3,7 @@ import { afterRemove, buildDeck, clampIndex } from "./deck.js";
 import { gradeChoice, makeSession } from "./quiz.js";
 import { GRADE, GRADE_LABELS, intervalLabel, qualityFromChoice } from "./srs.js";
 import { PLAZA_SCENES, mountPlaza, questProgress, sceneList } from "./scene.js";
-import { applyReview, loadSave, parseImport, persistSave, statsFor } from "./store.js";
+import { applyReview, canUndo, loadSave, parseImport, persistSave, statsFor, takeRemoteIfNewer, undoLastReview } from "./store.js";
 import { pickSpanishVoice, scoreUtterance } from "./speech.js";
 import { escapeHtml, fillName } from "./util.js";
 
@@ -37,6 +37,13 @@ let focusName = false;
 
 function persist() {
   save = persistSave(save);
+}
+
+function syncFromOtherTabs() {
+  const next = takeRemoteIfNewer(save);
+  if (next.updatedAt === save.updatedAt) return false;
+  save = next;
+  return true;
 }
 
 function toast(message) {
@@ -166,6 +173,14 @@ function shareApp() {
   navigator.clipboard.writeText(url).then(() => toast("Link copied")).catch(() => toast(url));
 }
 
+function statsTiles(stats) {
+  return `
+    <span class="stat"><strong>${stats.streak}</strong>streak</span>
+    <span class="stat"><strong>${stats.xp}</strong>XP</span>
+    <span class="stat"><strong>${stats.today}/${stats.goal}</strong>today</span>
+    <span class="stat"><strong>${stats.due}</strong>due</span>`;
+}
+
 function chromeHtml(stats) {
   const tabs = SET_ORDER.map((name) => {
     const count = stats.bySet[name];
@@ -181,27 +196,35 @@ function chromeHtml(stats) {
   const masterPct = Math.round((stats.mastered / stats.total) * 100);
   return `
     <div class="head">
-      <h1>Habla</h1>
-      <span>
+      <div>
+        <h1>Habla</h1>
+        <p class="sub">Latin American Spanish. ${masterPct}% mastered. Stays on this device.</p>
+      </div>
+      <div class="head-actions">
+        ${canUndo(save) ? `<button class="icon" data-undo>Undo</button>` : ""}
         <button class="icon" data-share>Share</button>
-        <span class="count">${stats.mastered}/${stats.total}</span>
-      </span>
+      </div>
     </div>
-    <p class="sub">Latin American Spanish. ${masterPct}% mastered. Progress stays on this device.</p>
-    <div class="stats">
-      <span class="stat">Streak ${stats.streak}</span>
-      <span class="stat">${stats.xp} XP</span>
-      <span class="stat">${stats.today}/${stats.goal} today</span>
-      <span class="stat">${stats.due} due</span>
-    </div>
+    <div class="stats" data-stats>${statsTiles(stats)}</div>
     <div class="goal" aria-label="Daily goal"><span style="width:${goalPct}%"></span></div>
-    <div class="namebox">
-      <label class="sr-only" for="name">Display name for examples</label>
-      <input id="name" placeholder="Your name, for examples" value="${escapeHtml(save.displayName)}" />
-    </div>
-    <div class="tabs">${tabs}</div>
-    <div class="tabs">${modes}</div>
-    <div class="tabs">${filters}</div>`;
+    <div class="scroll-tabs" role="tablist" aria-label="Phrase sets">${tabs}</div>
+    <div class="segment modes" role="tablist" aria-label="Study mode">${modes}</div>
+    <div class="segment filters" role="tablist" aria-label="Deck filter">${filters}</div>`;
+}
+
+function paintChromeStats() {
+  const host = document.querySelector("[data-stats]");
+  if (!host) return;
+  const stats = statsFor(save);
+  host.innerHTML = statsTiles(stats);
+  const goal = document.querySelector(".goal span");
+  if (goal) goal.style.width = `${Math.min(100, Math.round((stats.today / stats.goal) * 100))}%`;
+  const undo = document.querySelector("[data-undo]");
+  if (canUndo(save) && !undo) {
+    const actions = document.querySelector(".head-actions");
+    if (actions) actions.insertAdjacentHTML("afterbegin", `<button class="icon" data-undo>Undo</button>`);
+  }
+  if (!canUndo(save) && undo) undo.remove();
 }
 
 function cardBody() {
@@ -283,7 +306,11 @@ function render() {
   else if (save.mode === "plaza") body = plazaBody();
   else body = drillBody(save.mode);
   app.innerHTML = `${chromeHtml(stats)}${body}
-    <details><summary>Move your progress</summary>
+    <details><summary>Progress, name, and sharing</summary>
+      <div class="namebox">
+        <label class="sr-only" for="name">Display name for examples</label>
+        <input id="name" placeholder="Your name, for examples" value="${escapeHtml(save.displayName)}" autocomplete="nickname" />
+      </div>
       <div class="row"><button data-export>Export</button><button data-import>Import</button></div>
       <p class="muted">Each device keeps its own progress. Export a file to continue somewhere else, or send the link so someone else starts fresh.</p>
     </details>`;
@@ -324,6 +351,7 @@ async function mountScene() {
         const progress = questProgress(plazaId, plazaFound);
         if (progress.complete) toast("Mission complete");
         persist();
+        paintChromeStats();
       }
       const overlay = host.parentElement.querySelector(".quest");
       if (overlay && item) {
@@ -356,9 +384,25 @@ function finishProduce() {
   render();
 }
 
+function undoReview() {
+  if (!canUndo(save)) {
+    toast("Nothing to undo");
+    return;
+  }
+  save = undoLastReview(save);
+  show = save.mode === "cards";
+  persist();
+  render();
+  toast("Last review undone");
+}
+
 function onClick(event) {
-  const target = event.target.closest("[data-set],[data-mode],[data-filter],[data-flip],[data-prev],[data-next],[data-say],[data-start],[data-choice],[data-qnext],[data-grade],[data-share],[data-export],[data-import],[data-plaza],[data-listen],[data-check]");
+  const target = event.target.closest("[data-set],[data-mode],[data-filter],[data-flip],[data-prev],[data-next],[data-say],[data-start],[data-choice],[data-qnext],[data-grade],[data-share],[data-export],[data-import],[data-plaza],[data-listen],[data-check],[data-undo]");
   if (!target) return;
+  if (target.dataset.undo !== undefined) {
+    undoReview();
+    return;
+  }
   if (target.dataset.set) {
     save.set = target.dataset.set;
     save.index = 0;
@@ -463,6 +507,11 @@ function onClick(event) {
 
 function onKey(event) {
   if (event.target.matches("input")) return;
+  if ((event.key === "z" || event.key === "Z") && (event.metaKey || event.ctrlKey || !event.shiftKey)) {
+    if (event.metaKey || event.ctrlKey) event.preventDefault();
+    undoReview();
+    return;
+  }
   if (save.mode === "cards") {
     if (event.key === " " || event.key === "Enter") {
       event.preventDefault();
@@ -491,6 +540,13 @@ export function boot() {
   if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {};
   document.body.addEventListener("click", onClick);
   document.body.addEventListener("keydown", onKey);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    if (syncFromOtherTabs()) render();
+  });
+  window.addEventListener("focus", () => {
+    if (syncFromOtherTabs()) render();
+  });
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   render();
 }

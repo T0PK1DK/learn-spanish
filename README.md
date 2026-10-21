@@ -13,11 +13,12 @@ Progress stays on the device. The same link can be shared; each person keeps the
 Open the live link, or run `npm start` and visit `http://localhost:4173`. On iPhone: Share → Add to Home Screen.
 
 - **Cards** — Spanish first. Flip, then rate Again / Hard / Good / Easy. The next due time is honest SM-2, not a binary “known” flag.
+- **Undo** — take back the last review. Ease, interval, streak, and XP go back to the snapshot from before that tap, so a mis-tap cannot corrupt the scheduler.
 - **Quiz / Listen / Cloze** — mixed recognition with better distractors.
 - **Speak** — say or type the Spanish. Accents can be off and still count.
 - **Plaza** — a small WebGL café, market, and street. Drag to look, tap objects, finish a three-step mission.
-- **Due today / Still learning / All** — study the pile that is actually due.
-- **Export / Import** — move a JSON file to another device.
+- **Due today / Still learning / All** — study the pile that is actually due. Mastered cards still return when SM-2 says they are due.
+- **Export / Import** — move a JSON file to another device. The name field lives here too, so the study screen stays short on a phone.
 
 Sets: Greetings, Basics, Café, Food, Market, Around, Hotel, Family, Time, Numbers, Weather, Feelings.
 
@@ -43,10 +44,10 @@ npm test
 npm start
 ```
 
-`npm test` is the CI check. It runs Node’s built-in test runner against the scheduler, store migration, quiz generator, speech scorer, deck filters, and plaza quests.
+`npm test` is the CI check. It runs Node’s built-in test runner against the scheduler, store migration, review undo, quiz generator, speech scorer, deck filters, and plaza quests.
 
 The GitHub Pages workflow still publishes `main`. This project should not be deployed from a feature branch.
 
 ## Keyboard
 
-On cards: Space flips, `1`–`4` rate, arrows move.
+On cards: Space flips, `1`–`4` rate, arrows move. `Z` or `Ctrl+Z` undoes the last review.
