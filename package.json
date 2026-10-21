@@ -1,0 +1,10 @@
+{
+  "name": "habla",
+  "private": true,
+  "type": "module",
+  "description": "Latin American Spanish trainer — cards, SRS, listening, speaking, and a 3D plaza.",
+  "scripts": {
+    "test": "node --test --test-reporter=spec tests/*.test.js",
+    "start": "python3 -m http.server 4173"
+  }
+}

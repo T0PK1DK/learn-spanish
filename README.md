@@ -1,25 +1,52 @@
 # Habla
 
-A simple Latin American Spanish trainer. Cards, quizzes, and phone audio. Progress stays on the device, so friends can use the same link and each keep their own.
+A Latin American Spanish trainer that lives in the browser. Cards use spaced repetition. There is also a quiz, listening, speaking or typing, cloze sentences, and a 3D plaza where objects teach the words you need to order food or ask for directions.
 
-Live site (after Pages is on): https://t0pk1dk.github.io/learn-spanish/
+Progress stays on the device. The same link can be shared; each person keeps their own reviews. There is no account and no passcode.
+
+**Live site:** https://t0pk1dk.github.io/learn-spanish/
+
+**Source:** https://github.com/T0PK1DK/learn-spanish
 
 ## Use it
 
-Open the live link, or open `index.html`. Add it to your home screen on iPhone: Share → Add to Home Screen.
+Open the live link, or run `npm start` and visit `http://localhost:4173`. On iPhone: Share → Add to Home Screen.
 
-Sets: Greetings, Basics, Café, Food, Around, Family, Time, Numbers.
+- **Cards** — Spanish first. Flip, then rate Again / Hard / Good / Easy. The next due time is honest SM-2, not a binary “known” flag.
+- **Quiz / Listen / Cloze** — mixed recognition with better distractors.
+- **Speak** — say or type the Spanish. Accents can be off and still count.
+- **Plaza** — a small WebGL café, market, and street. Drag to look, tap objects, finish a three-step mission.
+- **Due today / Still learning / All** — study the pile that is actually due.
+- **Export / Import** — move a JSON file to another device.
 
-- Tap a card for English, pronunciation, and an example.
-- Play uses your phone's Spanish voice.
-- Got it / Again tracks what you know.
-- Still learning hides the ones you already have.
-- Share sends the link. Export / Import moves your progress to another phone.
+Sets: Greetings, Basics, Café, Food, Market, Around, Hotel, Family, Time, Numbers, Weather, Feelings.
 
-## Turn on the live site
+## Why it is built this way
 
-1. Repo → Settings → Pages
-2. Build and deployment → Source: GitHub Actions
-3. The workflow in `.github/workflows/pages.yml` publishes on every push to `main`
+Comparable apps and 3D language games were reviewed first. Ideas were borrowed as product patterns only. See [docs/RESEARCH.md](docs/RESEARCH.md).
 
-Or use Deploy from a branch → `main` → `/ (root)`.
+| Habla feature | Pattern taken from |
+|---|---|
+| Again / Hard / Good / Easy + intervals | [Anki / SM-2](https://docs.ankiweb.net/background.html) |
+| Streak, XP, daily goal | [Duolingo habit loop](https://blog.duolingo.com/product-highlights/) |
+| Scenario phrases | [Babbel-style dialogues](https://www.olesentuition.co.uk/single-post/which-app-should-i-use-to-learn-a-language-duolingo-memrise-babbel-quizlet-busuu) |
+| Listen then choose | [Memrise / Pimsleur](https://www.langoly.com/memrise-vs-duolingo/) |
+| Cloze in a sentence | [Clozemaster](https://www.clozemaster.com/l/spa-eng/intermediate-spanish-resources) |
+| Object–word plaza missions | [Roblox language worlds](https://insiderbits.com/best-games/learn-spanish-on-roblox/) |
+
+The next agent prompt lives in [docs/HANDOFF.md](docs/HANDOFF.md).
+
+## Develop
+
+```bash
+npm test
+npm start
+```
+
+`npm test` is the CI check. It runs Node’s built-in test runner against the scheduler, store migration, quiz generator, speech scorer, deck filters, and plaza quests.
+
+The GitHub Pages workflow still publishes `main`. This project should not be deployed from a feature branch.
+
+## Keyboard
+
+On cards: Space flips, `1`–`4` rate, arrows move.
