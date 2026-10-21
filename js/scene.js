@@ -109,32 +109,29 @@ function fallbackMarkup(scene) {
 
 function buildWorld(THREE, sceneId) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(sceneId === "street" ? 0x87a0b5 : sceneId === "market" ? 0x2a221c : 0x1c1712);
-  scene.fog = new THREE.Fog(scene.background, 10, 26);
+  const sky = sceneId === "street" ? 0x8ec5e8 : sceneId === "market" ? 0xf2d7b0 : 0xf0d8b8;
+  scene.background = new THREE.Color(sky);
+  scene.fog = new THREE.Fog(sky, 16, 32);
 
-  const hemi = new THREE.HemisphereLight(0xfff4e6, 0x2a2118, 0.9);
-  scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffe2b0, 1.15);
-  sun.position.set(4, 8, 3);
+  scene.add(new THREE.HemisphereLight(0xfff6e8, 0x6a4a32, 1.15));
+  const sun = new THREE.DirectionalLight(0xfff1d0, 1.35);
+  sun.position.set(5, 9, 4);
   sun.castShadow = true;
   scene.add(sun);
-  scene.add(new THREE.AmbientLight(0x40352c, 0.35));
-
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(22, 22),
-    new THREE.MeshStandardMaterial({
-      color: sceneId === "street" ? 0x6d6a66 : sceneId === "market" ? 0x5a4634 : 0x3a2b20,
-      roughness: 0.9
-    })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  scene.add(floor);
+  const lamp = new THREE.PointLight(0xffe0b0, 1.1, 14);
+  lamp.position.set(0.4, 3.2, 1.2);
+  scene.add(lamp);
 
   const addBox = (w, h, d, x, y, z, color, extra = {}) => {
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.05, ...extra.material })
+      new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.55,
+        metalness: 0.04,
+        emissive: extra.glow ? new THREE.Color(color) : 0x000000,
+        emissiveIntensity: extra.glow ? 0.12 : 0
+      })
     );
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
@@ -144,57 +141,72 @@ function buildWorld(THREE, sceneId) {
     return mesh;
   };
 
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(24, 24),
+    new THREE.MeshStandardMaterial({
+      color: sceneId === "street" ? 0x9aa0a6 : sceneId === "market" ? 0xc4a574 : 0xd7b48a,
+      roughness: 0.85
+    })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
   if (sceneId === "cafe") {
-    addBox(12, 4.2, 0.3, 0, 2.1, -4.2, 0x4a3326);
-    addBox(0.3, 4.2, 8, -5.6, 2.1, -0.4, 0x3c291f);
-    addBox(5.4, 1.1, 1.4, -1.2, 0.55, -2.4, 0x2b211b);
-    addBox(1.6, 0.12, 1.6, 2.1, 0.72, 0.6, 0x5b3d2a);
-    addBox(0.18, 0.72, 0.18, 1.5, 0.36, 0.1, 0x3a281c);
-    addBox(0.18, 0.72, 0.18, 2.7, 0.36, 0.1, 0x3a281c);
+    addBox(14, 5.2, 0.28, 0, 2.6, -4.6, 0xe8c9a0);
+    addBox(0.28, 5.2, 10, -6.4, 2.6, 0.2, 0xe3be93);
+    addBox(6.4, 1.25, 1.7, -1.1, 0.62, -2.5, 0x6b4530);
+    addBox(6.2, 0.08, 1.5, -1.1, 1.28, -2.45, 0x3e2a1f);
+    addBox(2.1, 0.14, 2.1, 2.4, 0.78, 1.1, 0x8a5a38);
+    addBox(0.16, 0.78, 0.16, 1.55, 0.39, 0.4, 0x5a3a24);
+    addBox(0.16, 0.78, 0.16, 3.25, 0.39, 0.4, 0x5a3a24);
+    addBox(0.16, 0.78, 0.16, 1.55, 0.39, 1.75, 0x5a3a24);
+    addBox(0.16, 0.78, 0.16, 3.25, 0.39, 1.75, 0x5a3a24);
   } else if (sceneId === "market") {
-    addBox(8, 0.12, 2.4, 0, 1.9, -2.2, 0xa85a32);
-    addBox(0.16, 1.9, 0.16, -3.6, 0.95, -1.4, 0x4a3424);
-    addBox(0.16, 1.9, 0.16, 3.6, 0.95, -1.4, 0x4a3424);
-    addBox(7.2, 0.7, 1.6, 0, 0.35, -2.0, 0x6a4a32);
+    addBox(10, 0.16, 3.2, 0, 2.35, -2.1, 0xd36a32);
+    addBox(0.18, 2.35, 0.18, -4.4, 1.17, -1.1, 0x7a4d2e);
+    addBox(0.18, 2.35, 0.18, 4.4, 1.17, -1.1, 0x7a4d2e);
+    addBox(9, 0.85, 2, 0, 0.42, -1.9, 0x8b5a36);
   } else {
-    addBox(1.4, 2.6, 3.2, -4.2, 1.3, -1.6, 0x8d6b4a);
-    addBox(1.8, 3.4, 2.4, 4.4, 1.7, -2.2, 0x6d7c86);
-    addBox(6, 0.08, 1.4, 0, 0.05, 0.4, 0x8a8680);
+    addBox(2.2, 3.4, 3.6, -4.6, 1.7, -1.2, 0xe0b27a);
+    addBox(2.4, 4.2, 2.8, 4.8, 2.1, -2.0, 0x8aa4b5);
+    addBox(8, 0.1, 2.2, 0, 0.05, 0.6, 0xc5c1b8);
   }
 
   const pickables = [];
   const layout = {
     cafe: [
-      ["coffee", 0.18, 0.22, 0.18, -1.6, 1.22, -2.0],
-      ["milk", 0.18, 0.22, 0.18, -0.9, 1.22, -2.05],
-      ["water", 0.14, 0.28, 0.14, -0.2, 1.25, -1.9],
-      ["juice", 0.16, 0.26, 0.16, 0.5, 1.24, -2.1],
-      ["bread", 0.42, 0.12, 0.24, 2.1, 0.84, 0.55],
-      ["check", 0.36, 0.02, 0.24, 2.35, 0.8, 0.95],
-      ["menu", 0.7, 0.9, 0.04, 2.8, 1.6, -2.3]
+      ["coffee", 0.42, 0.46, 0.42, -2.2, 1.62, -2.15],
+      ["milk", 0.42, 0.46, 0.42, -1.3, 1.62, -2.15],
+      ["water", 0.32, 0.58, 0.32, -0.35, 1.68, -2.0],
+      ["juice", 0.36, 0.54, 0.36, 0.55, 1.66, -2.15],
+      ["bread", 0.7, 0.22, 0.42, 2.35, 0.95, 1.05],
+      ["check", 0.55, 0.06, 0.38, 2.7, 0.9, 1.55],
+      ["menu", 1.1, 1.3, 0.08, 3.4, 2.15, -2.35]
     ],
     market: [
-      ["apples", 0.7, 0.28, 0.5, -2.2, 0.85, -1.85],
-      ["tomatoes", 0.7, 0.28, 0.5, -1.1, 0.85, -1.85],
-      ["rice", 0.7, 0.22, 0.5, 0.1, 0.82, -1.85],
-      ["fish", 0.7, 0.18, 0.46, 1.3, 0.8, -1.85],
-      ["meat", 0.7, 0.2, 0.46, 2.4, 0.81, -1.85],
-      ["price", 0.34, 0.34, 0.08, -0.4, 1.25, -1.15],
-      ["cash", 0.4, 0.16, 0.24, 1.6, 0.82, -1.1]
+      ["apples", 1.05, 0.5, 0.8, -2.8, 1.1, -1.7],
+      ["tomatoes", 1.05, 0.5, 0.8, -1.4, 1.1, -1.7],
+      ["rice", 1.05, 0.4, 0.8, 0, 1.05, -1.7],
+      ["fish", 1.05, 0.34, 0.75, 1.4, 1.02, -1.7],
+      ["meat", 1.05, 0.38, 0.75, 2.8, 1.04, -1.7],
+      ["price", 0.62, 0.62, 0.1, -0.2, 1.55, -0.85],
+      ["cash", 0.7, 0.28, 0.42, 1.8, 1.02, -0.8]
     ],
     street: [
-      ["left", 0.16, 0.7, 0.5, -1.7, 1.15, 0.2],
-      ["right", 0.16, 0.7, 0.5, 1.7, 1.15, 0.2],
-      ["straight", 0.5, 0.16, 0.16, 0, 1.4, -1.6],
-      ["bath", 0.7, 1.2, 0.4, -3.5, 0.7, -0.2],
-      ["lost", 0.36, 0.7, 0.36, 0.2, 0.45, 1.3],
-      ["airport", 1.1, 0.55, 0.7, 4.3, 2.15, -2.1]
+      ["left", 0.22, 1.1, 0.8, -2.0, 1.4, 0.4],
+      ["right", 0.22, 1.1, 0.8, 2.0, 1.4, 0.4],
+      ["straight", 0.8, 0.22, 0.22, 0, 1.75, -1.4],
+      ["bath", 1.1, 1.8, 0.55, -3.8, 0.95, 0.2],
+      ["lost", 0.55, 1.05, 0.55, 0.15, 0.55, 1.6],
+      ["airport", 1.6, 0.8, 1.0, 4.6, 2.7, -1.8]
     ]
   };
 
   for (const [key, w, h, d, x, y, z] of layout[sceneId]) {
     const meta = PLAZA_SCENES[sceneId].objects.find((object) => object.key === key);
     const mesh = addBox(w, h, d, x, y, z, meta.color, {
+      glow: true,
       userData: { pickable: true, ...describeObject(meta) }
     });
     pickables.push(mesh);
@@ -211,10 +223,10 @@ export async function mountPlaza(host, { sceneId = "cafe", onPick, onMiss } = {}
   try {
     const THREE = await import("three");
     const width = host.clientWidth || 360;
-    const height = Math.max(260, Math.round(width * 0.72));
-    const camera = new THREE.PerspectiveCamera(46, width / height, 0.1, 40);
-    camera.position.set(0.4, 3.1, 6.2);
-    camera.lookAt(0, 0.8, -1);
+    const height = Math.max(380, Math.round(width * 0.78));
+    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 40);
+    camera.position.set(0.2, 2.6, 5.2);
+    camera.lookAt(0, 1.0, -1.2);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -235,13 +247,13 @@ export async function mountPlaza(host, { sceneId = "cafe", onPick, onMiss } = {}
     let alive = true;
 
     const applyCamera = () => {
-      const radius = 6.4;
+      const radius = 5.4;
       camera.position.set(
         Math.sin(yaw) * radius,
-        2.6 + pitch * 2.4,
+        2.3 + pitch * 1.8,
         Math.cos(yaw) * radius
       );
-      camera.lookAt(0, 0.7, -1);
+      camera.lookAt(0, 1.0, -1.1);
     };
     applyCamera();
 
@@ -292,7 +304,7 @@ export async function mountPlaza(host, { sceneId = "cafe", onPick, onMiss } = {}
 
     const onResize = () => {
       const nextW = host.clientWidth || width;
-      const nextH = Math.max(260, Math.round(nextW * 0.72));
+      const nextH = Math.max(380, Math.round(nextW * 0.78));
       camera.aspect = nextW / nextH;
       camera.updateProjectionMatrix();
       renderer.setSize(nextW, nextH);

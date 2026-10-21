@@ -42,7 +42,7 @@ export function makeQuestion(item, pool, kind, random = Math.random) {
     };
   }
 
-  const toMeaning = kind === "listen" ? true : kind === "produce" ? false : random() < 0.55;
+  const toMeaning = kind === "listen" ? true : (kind === "produce" || kind === "speak") ? false : random() < 0.55;
   const promptField = toMeaning ? "es" : "en";
   const answerField = toMeaning ? "en" : "es";
   const options = [

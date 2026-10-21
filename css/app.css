@@ -128,8 +128,8 @@ summary { cursor: pointer; }
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
-  background: #1a1612;
-  min-height: 260px;
+  background: #c9b08a;
+  min-height: 380px;
 }
 .plaza-host canvas { display: block; width: 100%; height: auto; }
 .plaza-fallback { padding: 12px; }

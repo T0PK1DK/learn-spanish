@@ -35,6 +35,13 @@ test("listen questions prompt with Spanish and answer in English", () => {
   assert.equal(question.answer, coffee.en);
 });
 
+test("speak questions prompt with English and expect Spanish", () => {
+  const question = makeQuestion(coffee, pool, "speak", () => 0.9);
+  assert.equal(question.prompt, coffee.en);
+  assert.equal(question.answer, coffee.es);
+  assert.equal(question.say, coffee.es);
+});
+
 test("cloze hides part of the example", () => {
   const question = makeQuestion(coffee, pool, "cloze", () => 0.4);
   assert.match(question.prompt, /____/);

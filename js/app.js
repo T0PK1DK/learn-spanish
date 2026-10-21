@@ -254,7 +254,7 @@ function drillBody(kind) {
       ${kind === "cloze" ? `<p class="muted">Full line after you answer.</p>` : ""}
       ${verdict ? `<p class="muted">${verdict.ok ? (verdict.accentOnly ? "Right words. Watch the accents next time." : "Close enough.") : "Not yet. Compare and try again."}</p>` : ""}
     </div>
-    ${produce ? `<div class="typebox"><input id="typed" value="${escapeHtml(typed)}" placeholder="Type the Spanish" /><button data-listen>Mic</button><button class="primary" data-check>Check</button></div>` : `<div class="choices">${choices}</div>`}
+      ${produce ? `<p class="muted">Say or type the Spanish for that line.</p><div class="typebox"><input id="typed" value="${escapeHtml(typed)}" placeholder="Type the Spanish" autocomplete="off" /><button data-listen>Mic</button><button class="primary" data-check>Check</button></div>` : `<div class="choices">${choices}</div>`}
     ${picked || (produce && verdict) ? `<div class="row"><button class="primary" data-qnext>${qi + 1 === session.length ? "Score" : "Next"}</button></div>` : ""}`;
 }
 
@@ -345,7 +345,9 @@ function finishChoice(choice) {
 
 function finishProduce() {
   const question = session[qi];
-  const attempt = typed || heard;
+  const field = document.getElementById("typed");
+  const attempt = (field?.value || typed || heard).trim();
+  typed = attempt;
   const verdict = scoreUtterance(question.say, attempt);
   question.correct = verdict.ok;
   picked = attempt || " ";
