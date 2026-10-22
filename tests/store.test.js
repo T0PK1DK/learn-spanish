@@ -13,6 +13,7 @@ import {
   persistSave,
   sanitizeSave,
   setDailyGoal,
+  setProgress,
   statsFor,
   undoLastReview,
   weekMarks
@@ -282,6 +283,30 @@ test("setDailyGoal clamps to the same short range as sanitize", () => {
   assert.equal(setDailyGoal(emptySave(NOW), 10).dailyGoal, 10);
   const save = sanitizeSave({ version: 2, dailyGoal: 3, updatedAt: NOW }, NOW);
   assert.equal(save.dailyGoal, 4);
+});
+
+test("changing the daily goal keeps today's reviews and cards", () => {
+  let save = applyReview(emptySave(NOW), "Greetings::Hola", GRADE.good, NOW, DAY);
+  const card = save.cards["Greetings::Hola"];
+  save = setDailyGoal(save, 18);
+  assert.equal(save.dailyGoal, 18);
+  assert.equal(save.todayReviews, 1);
+  assert.deepEqual(save.cards["Greetings::Hola"], card);
+  assert.equal(goalState(save, DAY).today, 1);
+});
+
+test("setProgress lists every set with mastered shares", () => {
+  const save = emptySave(NOW);
+  save.cards["Greetings::Hola"] = {
+    ease: 2.6, interval: 30, reps: 6, lapses: 0, due: NOW + 1000, learning: false
+  };
+  const rows = setProgress(statsFor(save, NOW, DAY));
+  assert.ok(rows.length >= 8);
+  const greetings = rows.find((row) => row.name === "Greetings");
+  assert.equal(greetings.mastered, 1);
+  assert.ok(greetings.total > greetings.mastered);
+  assert.ok(greetings.pct > 0);
+  assert.ok(rows.every((row) => row.pct >= 0 && row.pct <= 100));
 });
 
 test("stats count a mastered card as due when its time has come", () => {

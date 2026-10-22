@@ -283,8 +283,20 @@ h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -0.03em; }
   .burst.on::before,
   .burst.on::after { animation: none; }
 }
-details { margin-top: 16px; color: var(--muted); font-size: 14px; }
-summary { cursor: pointer; padding: 6px 0; }
+.progress-hero { min-height: 0; padding: 20px 16px 16px; margin-bottom: 12px; }
+.progress-hero .week { margin: 14px 0 0; }
+.progress-stats { margin: 0 0 14px; }
+.goal-picks { margin-bottom: 10px; }
+.set-list { display: grid; gap: 10px; margin: 0 0 16px; }
+.set-row {
+  background: #1c1a17;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.set-row-top { display: flex; justify-content: space-between; gap: 8px; }
+.set-row .bar { margin: 8px 0 4px; }
+.set-row small { color: var(--muted); font-size: 12px; }
 .plaza-host {
   border: 1px solid var(--line);
   border-radius: 16px;

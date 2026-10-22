@@ -4,7 +4,7 @@ import { gradeChoice, makeSession } from "./quiz.js";
 import { GRADE, GRADE_LABELS, intervalLabel, qualityFromChoice } from "./srs.js";
 import { PLAZA_SCENES, mountPlaza, questProgress, sceneList } from "./scene.js";
 import { celebrationFor } from "./celebrate.js";
-import { applyReview, canUndo, loadSave, parseImport, persistSave, statsFor, takeRemoteIfNewer, undoLastReview } from "./store.js";
+import { applyReview, canUndo, GOAL_CHOICES, loadSave, parseImport, persistSave, setDailyGoal, setProgress, statsFor, takeRemoteIfNewer, undoLastReview } from "./store.js";
 import { pickSpanishVoice, scoreUtterance } from "./speech.js";
 import { escapeHtml, fillName } from "./util.js";
 
@@ -35,6 +35,7 @@ let plazaFound = [];
 let plazaHandle = null;
 let plazaPicked = null;
 let focusName = false;
+let screen = "study";
 
 function persist() {
   save = persistSave(save);
@@ -243,6 +244,7 @@ function chromeHtml(stats) {
       </div>
       <div class="head-actions">
         ${canUndo(save) ? `<button class="icon" data-undo>Undo</button>` : ""}
+        <button class="icon" data-screen="progress">Progress</button>
         <button class="icon" data-share>Share</button>
       </div>
     </div>
@@ -330,6 +332,68 @@ function drillBody(kind) {
     ${picked || (produce && verdict) ? `<div class="row"><button class="primary" data-qnext>${qi + 1 === session.length ? "Score" : "Next"}</button></div>` : ""}`;
 }
 
+function bindNameField() {
+  const input = document.getElementById("name");
+  if (!input) return;
+  if (focusName) input.focus();
+  input.addEventListener("input", () => {
+    save.displayName = input.value.trim();
+  });
+  input.addEventListener("change", () => {
+    persist();
+  });
+  input.addEventListener("focus", () => { focusName = true; });
+  input.addEventListener("blur", () => { focusName = false; persist(); });
+}
+
+function progressChrome() {
+  return `
+    <div class="head">
+      <div>
+        <h1>Progress</h1>
+        <p class="sub">Stays on this device. Cards and reviews are untouched when you change the daily goal.</p>
+      </div>
+      <div class="head-actions">
+        <button class="icon" data-screen="study">Study</button>
+        <button class="icon" data-share>Share</button>
+      </div>
+    </div>`;
+}
+
+function progressBody(stats) {
+  const rows = setProgress(stats).map((row) =>
+    `<div class="set-row"><div class="set-row-top"><span>${escapeHtml(row.name)}</span><strong>${row.mastered}/${row.total}</strong></div><div class="bar"><span style="width:${row.pct}%"></span></div><small>${row.due} due</small></div>`
+  ).join("");
+  const picks = GOAL_CHOICES.map((n) =>
+    `<button data-goal="${n}" class="${save.dailyGoal === n ? "on" : ""}">${n}</button>`
+  ).join("");
+  const streakWord = stats.streak === 1 ? "day" : "days";
+  return `
+    <div class="card progress-hero">
+      <div class="es">${stats.streak}</div>
+      <div class="muted">${streakWord} in a row${stats.bestStreak ? ` · best ${stats.bestStreak}` : ""}</div>
+      ${weekStrip(stats)}
+    </div>
+    <div class="stats progress-stats">
+      <span class="stat"><strong>${stats.todayXp}</strong>XP today</span>
+      <span class="stat"><strong>${stats.xp}</strong>XP</span>
+      <span class="stat"><strong>${stats.mastered}</strong>mastered</span>
+      <span class="stat"><strong>${stats.learning}</strong>learning</span>
+    </div>
+    <p class="sub">Short daily goal</p>
+    <div class="segment goal-picks" role="group" aria-label="Daily goal">${picks}</div>
+    ${goalLabel(stats)}
+    <div class="goal${stats.goalDone ? " done" : ""}" aria-label="Daily goal ${stats.today} of ${stats.goal}"><span style="width:${stats.goalPct}%"></span></div>
+    <p class="sub">Sets</p>
+    <div class="set-list">${rows}</div>
+    <div class="namebox">
+      <label class="sr-only" for="name">Display name for examples</label>
+      <input id="name" placeholder="Your name, for examples" value="${escapeHtml(save.displayName)}" autocomplete="nickname" />
+    </div>
+    <div class="row"><button data-export>Export</button><button data-import>Import</button></div>
+    <p class="muted">Each device keeps its own progress. Export a file to continue somewhere else, or send the link so someone else starts fresh.</p>`;
+}
+
 function plazaBody() {
   const progress = questProgress(plazaId, plazaFound);
   const scenes = sceneList().map((scene) =>
@@ -350,32 +414,16 @@ function plazaBody() {
 function render() {
   const stats = statsFor(save);
   const app = document.getElementById("app");
+  if (screen === "progress") {
+    app.innerHTML = `${progressChrome()}${progressBody(stats)}`;
+    bindNameField();
+    return;
+  }
   let body = "";
   if (save.mode === "cards") body = cardBody();
   else if (save.mode === "plaza") body = plazaBody();
   else body = drillBody(save.mode);
-  app.innerHTML = `${chromeHtml(stats)}${body}
-    <details><summary>Progress, name, and sharing</summary>
-      <div class="namebox">
-        <label class="sr-only" for="name">Display name for examples</label>
-        <input id="name" placeholder="Your name, for examples" value="${escapeHtml(save.displayName)}" autocomplete="nickname" />
-      </div>
-      <div class="row"><button data-export>Export</button><button data-import>Import</button></div>
-      <p class="muted">Each device keeps its own progress. Export a file to continue somewhere else, or send the link so someone else starts fresh.</p>
-    </details>`;
-
-  const input = document.getElementById("name");
-  if (input) {
-    if (focusName) input.focus();
-    input.addEventListener("input", () => {
-      save.displayName = input.value.trim();
-    });
-    input.addEventListener("change", () => {
-      persist();
-    });
-    input.addEventListener("focus", () => { focusName = true; });
-    input.addEventListener("blur", () => { focusName = false; persist(); });
-  }
+  app.innerHTML = `${chromeHtml(stats)}${body}`;
   const typedInput = document.getElementById("typed");
   if (typedInput) {
     typedInput.addEventListener("input", () => { typed = typedInput.value; });
@@ -454,8 +502,19 @@ function undoReview() {
 }
 
 function onClick(event) {
-  const target = event.target.closest("[data-set],[data-mode],[data-filter],[data-flip],[data-prev],[data-next],[data-say],[data-start],[data-choice],[data-qnext],[data-grade],[data-share],[data-export],[data-import],[data-plaza],[data-listen],[data-check],[data-undo]");
+  const target = event.target.closest("[data-set],[data-mode],[data-filter],[data-flip],[data-prev],[data-next],[data-say],[data-start],[data-choice],[data-qnext],[data-grade],[data-share],[data-export],[data-import],[data-plaza],[data-listen],[data-check],[data-undo],[data-screen],[data-goal]");
   if (!target) return;
+  if (target.dataset.screen) {
+    screen = target.dataset.screen === "progress" ? "progress" : "study";
+    render();
+    return;
+  }
+  if (target.dataset.goal) {
+    save = setDailyGoal(save, Number(target.dataset.goal));
+    persist();
+    render();
+    return;
+  }
   if (target.dataset.undo !== undefined) {
     undoReview();
     return;
@@ -564,6 +623,12 @@ function onClick(event) {
 
 function onKey(event) {
   if (event.target.matches("input")) return;
+  if (event.key === "Escape" && screen === "progress") {
+    screen = "study";
+    render();
+    return;
+  }
+  if (screen === "progress") return;
   if ((event.key === "z" || event.key === "Z") && (event.metaKey || event.ctrlKey || !event.shiftKey)) {
     if (event.metaKey || event.ctrlKey) event.preventDefault();
     undoReview();

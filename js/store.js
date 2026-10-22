@@ -370,6 +370,19 @@ export function statsFor(save, now = Date.now(), day = localDayKey()) {
   };
 }
 
+export function setProgress(stats) {
+  return SET_ORDER.map((name) => {
+    const count = stats?.bySet?.[name] || { total: 0, mastered: 0, due: 0 };
+    return {
+      name,
+      mastered: count.mastered,
+      total: count.total,
+      due: count.due,
+      pct: count.total ? Math.round((count.mastered / count.total) * 100) : 0
+    };
+  });
+}
+
 export function awardPlaza(save, ids, now = Date.now(), day = localDayKey()) {
   return ids.reduce((next, id) => applyReview(next, id, GRADE.good, now, day), save);
 }
