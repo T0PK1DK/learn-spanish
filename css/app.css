@@ -146,6 +146,20 @@ h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -0.03em; }
   border-color: var(--gold);
 }
 .week .now small { color: var(--ink); font-weight: 650; }
+.goal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.goal-row strong {
+  color: var(--ink);
+  font-weight: 650;
+  font-size: 12px;
+}
 .bar, .goal {
   height: 4px;
   background: #2a2621;
@@ -154,6 +168,7 @@ h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -0.03em; }
   margin: 0 0 12px;
 }
 .bar span, .goal span { display: block; height: 100%; background: var(--gold); }
+.goal.done span { background: var(--good); }
 .card, .stage-card {
   width: 100%;
   text-align: left;

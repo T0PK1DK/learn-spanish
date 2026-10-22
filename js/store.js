@@ -5,6 +5,10 @@ import { addCalendarDays, localDayKey, weekdayShort } from "./util.js";
 export const STORAGE_KEY = "habla-v2";
 export const LEGACY_KEY = "habla-v1";
 export const CURRENT_VERSION = 2;
+export const GOAL_CHOICES = [6, 10, 12, 18];
+export const MIN_DAILY_GOAL = 4;
+export const MAX_DAILY_GOAL = 40;
+export const DEFAULT_DAILY_GOAL = 12;
 
 export function emptySave(now = Date.now()) {
   return {
@@ -19,7 +23,7 @@ export function emptySave(now = Date.now()) {
     streak: 0,
     bestStreak: 0,
     lastStudyDay: "",
-    dailyGoal: 12,
+    dailyGoal: DEFAULT_DAILY_GOAL,
     todayReviews: 0,
     todayXp: 0,
     reviews: [],
@@ -109,7 +113,7 @@ export function sanitizeSave(raw, now = Date.now()) {
       Math.max(0, Math.floor(Number(incoming.streak) || 0)),
       Math.max(0, Math.floor(Number(incoming.bestStreak) || 0))
     ),
-    dailyGoal: Math.min(40, Math.max(4, Math.floor(Number(incoming.dailyGoal) || 12))),
+    dailyGoal: clampDailyGoal(incoming.dailyGoal),
     todayReviews: Math.max(0, Math.floor(Number(incoming.todayReviews) || 0)),
     todayXp: Math.max(0, Math.floor(Number(incoming.todayXp) || 0)),
     cards: {},
@@ -239,6 +243,28 @@ export function undoLastReview(save) {
   };
 }
 
+export function clampDailyGoal(value) {
+  const n = Math.floor(Number(value) || DEFAULT_DAILY_GOAL);
+  return Math.min(MAX_DAILY_GOAL, Math.max(MIN_DAILY_GOAL, n));
+}
+
+export function setDailyGoal(save, value) {
+  return { ...save, dailyGoal: clampDailyGoal(value) };
+}
+
+export function goalState(save, day = localDayKey()) {
+  const goal = clampDailyGoal(save?.dailyGoal);
+  const today = save?.lastStudyDay === day ? Math.max(0, Math.floor(Number(save.todayReviews) || 0)) : 0;
+  const remaining = Math.max(0, goal - today);
+  return {
+    goal,
+    today,
+    remaining,
+    done: today >= goal,
+    pct: Math.min(100, Math.round((today / goal) * 100))
+  };
+}
+
 export function stampStudyDay(save, day = localDayKey()) {
   if (save.lastStudyDay === day) {
     return { ...save, todayReviews: save.todayReviews + 1 };
@@ -324,14 +350,18 @@ export function statsFor(save, now = Date.now(), day = localDayKey()) {
       bucket.due += 1;
     }
   }
+  const goal = goalState(save, day);
   return {
     total: phrases.length,
     due,
     learning,
     mastered,
     bySet,
-    goal: save.dailyGoal,
-    today: save.lastStudyDay === day ? save.todayReviews : 0,
+    goal: goal.goal,
+    today: goal.today,
+    remaining: goal.remaining,
+    goalDone: goal.done,
+    goalPct: goal.pct,
     todayXp: save.lastStudyDay === day ? save.todayXp : 0,
     streak: liveStreak(save, day),
     bestStreak: Math.max(save.bestStreak || 0, liveStreak(save, day)),

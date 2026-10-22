@@ -8,9 +8,11 @@ import {
   emptySave,
   migrateLegacy,
   parseImport,
+  goalState,
   liveStreak,
   persistSave,
   sanitizeSave,
+  setDailyGoal,
   statsFor,
   undoLastReview,
   weekMarks
@@ -239,6 +241,47 @@ test("legacy undo snapshots without bestStreak keep the stored best", () => {
   }];
   const undone = undoLastReview(save);
   assert.equal(undone.bestStreak, 6);
+});
+
+test("goalState counts remaining reviews on a short daily target", () => {
+  let save = setDailyGoal(emptySave(NOW), 6);
+  assert.equal(save.dailyGoal, 6);
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, DAY);
+  const goal = goalState(save, DAY);
+  assert.equal(goal.today, 1);
+  assert.equal(goal.remaining, 5);
+  assert.equal(goal.done, false);
+  assert.equal(statsFor(save, NOW, DAY).remaining, 5);
+});
+
+test("goalState is done once today meets the target", () => {
+  let save = setDailyGoal(emptySave(NOW), 4);
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, DAY);
+  save = applyReview(save, "Greetings::Gracias", GRADE.good, NOW, DAY);
+  save = applyReview(save, "Greetings::Adiós", GRADE.good, NOW, DAY);
+  save = applyReview(save, "Greetings::Buenos días", GRADE.again, NOW, DAY);
+  const goal = goalState(save, DAY);
+  assert.equal(goal.today, 4);
+  assert.equal(goal.remaining, 0);
+  assert.equal(goal.done, true);
+  assert.equal(goal.pct, 100);
+});
+
+test("a new calendar day starts the short goal at zero", () => {
+  let save = setDailyGoal(emptySave(NOW), 6);
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, "2026-10-20");
+  const goal = goalState(save, DAY);
+  assert.equal(goal.today, 0);
+  assert.equal(goal.remaining, 6);
+  assert.equal(goal.done, false);
+});
+
+test("setDailyGoal clamps to the same short range as sanitize", () => {
+  assert.equal(setDailyGoal(emptySave(NOW), 2).dailyGoal, 4);
+  assert.equal(setDailyGoal(emptySave(NOW), 99).dailyGoal, 40);
+  assert.equal(setDailyGoal(emptySave(NOW), 10).dailyGoal, 10);
+  const save = sanitizeSave({ version: 2, dailyGoal: 3, updatedAt: NOW }, NOW);
+  assert.equal(save.dailyGoal, 4);
 });
 
 test("stats count a mastered card as due when its time has come", () => {

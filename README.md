@@ -19,6 +19,7 @@ Open the live link, or run `npm start` and visit `http://localhost:4173`. On iPh
 - **Plaza** — a small WebGL café, market, and street. Drag to look, tap objects, finish a three-step mission.
 - **Due today / Still learning / All** — study the pile that is actually due. Mastered cards still return when SM-2 says they are due.
 - **Streak** — a seven-day strip of study days. The count stays live through yesterday, then drops after a gap. Best streak is kept in the save.
+- **Daily goal** — a short review target (default 12, from 4 to 40). The bar shows how many are left today.
 - **Export / Import** — move a JSON file to another device. The name field lives here too, so the study screen stays short on a phone.
 
 Sets: Greetings, Basics, Café, Food, Market, Around, Hotel, Family, Time, Numbers, Weather, Feelings.

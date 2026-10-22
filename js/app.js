@@ -173,6 +173,11 @@ function shareApp() {
   navigator.clipboard.writeText(url).then(() => toast("Link copied")).catch(() => toast(url));
 }
 
+function goalLabel(stats) {
+  const status = stats.goalDone ? "done" : `${stats.remaining} left`;
+  return `<div class="goal-row" data-goal-label><span>Daily goal</span><strong>${stats.today}/${stats.goal} · ${status}</strong></div>`;
+}
+
 function weekStrip(stats) {
   const days = (stats.week || []).map((mark) =>
     `<span class="dot${mark.done ? " on" : ""}${mark.today ? " now" : ""}" title="${escapeHtml(mark.day)}"><small>${escapeHtml(mark.label)}</small><i></i></span>`
@@ -199,7 +204,7 @@ function chromeHtml(stats) {
   const filters = FILTERS.map((filter) =>
     `<button data-filter="${filter.id}" class="${save.filter === filter.id ? "on" : ""}">${filter.label}</button>`
   ).join("");
-  const goalPct = Math.min(100, Math.round((stats.today / stats.goal) * 100));
+  const goalPct = Number.isFinite(stats.goalPct) ? stats.goalPct : Math.min(100, Math.round((stats.today / stats.goal) * 100));
   const masterPct = Math.round((stats.mastered / stats.total) * 100);
   return `
     <div class="head">
@@ -214,7 +219,8 @@ function chromeHtml(stats) {
     </div>
     <div class="stats" data-stats>${statsTiles(stats)}</div>
     ${weekStrip(stats)}
-    <div class="goal" aria-label="Daily goal"><span style="width:${goalPct}%"></span></div>
+    ${goalLabel(stats)}
+    <div class="goal${stats.goalDone ? " done" : ""}" aria-label="Daily goal ${stats.today} of ${stats.goal}"><span style="width:${goalPct}%"></span></div>
     <div class="scroll-tabs" role="tablist" aria-label="Phrase sets">${tabs}</div>
     <div class="segment modes" role="tablist" aria-label="Study mode">${modes}</div>
     <div class="segment filters" role="tablist" aria-label="Deck filter">${filters}</div>`;
@@ -227,8 +233,12 @@ function paintChromeStats() {
   host.innerHTML = statsTiles(stats);
   const week = document.querySelector("[data-week]");
   if (week) week.outerHTML = weekStrip(stats);
+  const goalCaption = document.querySelector("[data-goal-label]");
+  if (goalCaption) goalCaption.outerHTML = goalLabel(stats);
   const goal = document.querySelector(".goal span");
-  if (goal) goal.style.width = `${Math.min(100, Math.round((stats.today / stats.goal) * 100))}%`;
+  const goalBar = document.querySelector(".goal");
+  if (goal) goal.style.width = `${Number.isFinite(stats.goalPct) ? stats.goalPct : Math.min(100, Math.round((stats.today / stats.goal) * 100))}%`;
+  if (goalBar) goalBar.classList.toggle("done", Boolean(stats.goalDone));
   const undo = document.querySelector("[data-undo]");
   if (canUndo(save) && !undo) {
     const actions = document.querySelector(".head-actions");
