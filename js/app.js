@@ -3,6 +3,7 @@ import { afterRemove, buildDeck, clampIndex } from "./deck.js";
 import { gradeChoice, makeSession } from "./quiz.js";
 import { GRADE, GRADE_LABELS, intervalLabel, qualityFromChoice } from "./srs.js";
 import { PLAZA_SCENES, mountPlaza, questProgress, sceneList } from "./scene.js";
+import { celebrationFor } from "./celebrate.js";
 import { applyReview, canUndo, loadSave, parseImport, persistSave, statsFor, takeRemoteIfNewer, undoLastReview } from "./store.js";
 import { pickSpanishVoice, scoreUtterance } from "./speech.js";
 import { escapeHtml, fillName } from "./util.js";
@@ -52,6 +53,32 @@ function toast(message) {
   el.classList.add("on");
   clearTimeout(toast._t);
   toast._t = setTimeout(() => el.classList.remove("on"), 1600);
+}
+
+function burst(kind) {
+  const host = document.getElementById("burst");
+  if (!host) return;
+  host.className = `burst on ${kind || "ok"}`;
+  clearTimeout(burst._t);
+  burst._t = setTimeout(() => { host.className = "burst"; }, 720);
+}
+
+function cheer(before, after, extra = {}) {
+  const previous = statsFor(before);
+  const next = statsFor(after);
+  const note = celebrationFor({
+    quality: extra.quality,
+    correct: extra.correct,
+    today: next.today,
+    previousToday: previous.today,
+    goal: next.goal,
+    streak: next.streak,
+    previousStreak: previous.streak
+  });
+  if (!note) return null;
+  toast(note.text);
+  burst(note.kind);
+  return note;
 }
 
 function fill(text) {
@@ -123,6 +150,7 @@ function listenNow() {
 function rateCurrent(quality) {
   const phrase = currentPhrase();
   const words = deck();
+  const before = save;
   save = applyReview(save, phrase.id, quality);
   const nextDeck = deck();
   if (save.filter === "due" || save.filter === "learning") {
@@ -133,6 +161,7 @@ function rateCurrent(quality) {
   show = false;
   persist();
   render();
+  cheer(before, save, { quality });
   const next = deck()[save.index];
   if (next) speak(next.es);
 }
@@ -367,9 +396,11 @@ async function mountScene() {
       const progressBefore = questProgress(plazaId, plazaFound);
       if (progressBefore.next && item.key === progressBefore.next.key && !plazaFound.includes(item.key)) {
         plazaFound = [...plazaFound, item.key];
+        const before = save;
         if (item.phrase?.id) save = applyReview(save, item.phrase.id, GRADE.good);
         const progress = questProgress(plazaId, plazaFound);
         if (progress.complete) toast("Mission complete");
+        else if (item.phrase?.id) cheer(before, save, { quality: GRADE.good, correct: true });
         persist();
         paintChromeStats();
       }
@@ -386,9 +417,12 @@ function finishChoice(choice) {
   picked = choice;
   const ok = gradeChoice(question, choice);
   question.correct = ok;
-  save = applyReview(save, question.id, qualityFromChoice(ok));
+  const before = save;
+  const quality = qualityFromChoice(ok);
+  save = applyReview(save, question.id, quality);
   persist();
   render();
+  cheer(before, save, { quality, correct: ok });
 }
 
 function finishProduce() {
@@ -399,9 +433,12 @@ function finishProduce() {
   const verdict = scoreUtterance(question.say, attempt);
   question.correct = verdict.ok;
   picked = attempt || " ";
-  save = applyReview(save, question.id, verdict.ok ? (verdict.accentOnly ? GRADE.hard : GRADE.good) : GRADE.again);
+  const before = save;
+  const quality = verdict.ok ? (verdict.accentOnly ? GRADE.hard : GRADE.good) : GRADE.again;
+  save = applyReview(save, question.id, quality);
   persist();
   render();
+  cheer(before, save, { quality, correct: verdict.ok });
 }
 
 function undoReview() {
