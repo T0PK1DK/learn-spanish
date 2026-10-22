@@ -429,6 +429,8 @@ function plazaBody() {
 function render() {
   const stats = statsFor(save);
   const app = document.getElementById("app");
+  const burstHost = document.getElementById("burst");
+  if (burstHost) burstHost.className = "burst";
   window.scrollTo(0, 0);
   if (screen === "progress") {
     app.innerHTML = `${progressChrome()}${progressBody(stats)}`;
