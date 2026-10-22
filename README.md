@@ -10,7 +10,7 @@ Progress stays on the device. The same link can be shared; each person keeps the
 
 ## Use it
 
-Open the live link, or run `npm start` and visit `http://localhost:4173`. On iPhone: Share → Add to Home Screen.
+Open the live link, or run `npm start` and visit `http://localhost:4173`. On iPhone: Share → Add to Home Screen. Phone layout keeps 44px targets, notch padding, and the card first.
 
 - **Cards** — Spanish first. Flip, then rate Again / Hard / Good / Easy. The next due time is honest SM-2, not a binary “known” flag.
 - **Undo** — take back the last review. Ease, interval, streak, and XP go back to the snapshot from before that tap, so a mis-tap cannot corrupt the scheduler.

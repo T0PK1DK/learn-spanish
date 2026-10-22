@@ -414,6 +414,7 @@ function plazaBody() {
 function render() {
   const stats = statsFor(save);
   const app = document.getElementById("app");
+  window.scrollTo(0, 0);
   if (screen === "progress") {
     app.innerHTML = `${progressChrome()}${progressBody(stats)}`;
     bindNameField();
