@@ -14,15 +14,13 @@ export function buildDeck(save, now = Date.now()) {
   const phrases = decorate(phrasesIn(save.set), save, now);
   if (save.filter === "all") return phrases;
   if (save.filter === "learning") {
-    const weak = phrases.filter((word) => !word.mastered);
-    return weak.length ? weak : phrases;
+    return phrases.filter((word) => !word.mastered);
   }
   const reviews = phrases
     .filter((word) => word.card && word.due)
     .sort((a, b) => a.card.due - b.card.due);
   const unseen = phrases.filter((word) => !word.card);
-  const pile = reviews.concat(unseen);
-  return pile.length ? pile : phrases;
+  return reviews.concat(unseen);
 }
 
 export function clampIndex(index, length) {

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { afterRemove, buildDeck, clampIndex } from "../js/deck.js";
 import { emptySave } from "../js/store.js";
+import { phrasesIn } from "../js/data/sets.js";
 import { AGAIN_STEP_MS } from "../js/srs.js";
 
 const NOW = Date.parse("2026-10-21T12:00:00Z");
@@ -67,6 +68,40 @@ test("due filter still shows a mastered card when it is due again", () => {
   const deck = buildDeck(save, NOW);
   assert.ok(deck.some((word) => word.es === "Hola"));
   assert.ok(deck.every((word) => word.es !== "Gracias"));
+});
+
+test("due filter is empty when every card waits for later", () => {
+  const save = emptySave(NOW);
+  save.set = "Greetings";
+  save.filter = "due";
+  for (const word of phrasesIn("Greetings")) {
+    save.cards[word.id] = {
+      ease: 2.6,
+      interval: 30,
+      reps: 6,
+      lapses: 0,
+      due: NOW + 40 * 24 * 60 * 60 * 1000,
+      learning: false
+    };
+  }
+  assert.equal(buildDeck(save, NOW).length, 0);
+});
+
+test("learning filter is empty when the set is mastered", () => {
+  const save = emptySave(NOW);
+  save.set = "Greetings";
+  save.filter = "learning";
+  for (const word of phrasesIn("Greetings")) {
+    save.cards[word.id] = {
+      ease: 2.6,
+      interval: 30,
+      reps: 6,
+      lapses: 0,
+      due: NOW + 40 * 24 * 60 * 60 * 1000,
+      learning: false
+    };
+  }
+  assert.equal(buildDeck(save, NOW).length, 0);
 });
 
 test("clampIndex wraps a spent pile back to the start", () => {

@@ -328,14 +328,6 @@ export function statsFor(save, now = Date.now(), day = localDayKey()) {
   for (const phrase of phrases) {
     const card = save.cards[phrase.id];
     const bucket = bySet[phrase.set];
-    if (!card || card.learning || card.reps === 0) {
-      learning += 1;
-      if (!card || card.due <= now) {
-        due += 1;
-        bucket.due += 1;
-      }
-      continue;
-    }
     if (isMastered(card)) {
       mastered += 1;
       bucket.mastered += 1;
@@ -345,7 +337,8 @@ export function statsFor(save, now = Date.now(), day = localDayKey()) {
       }
       continue;
     }
-    if (card.due <= now) {
+    learning += 1;
+    if (!card || card.due <= now) {
       due += 1;
       bucket.due += 1;
     }

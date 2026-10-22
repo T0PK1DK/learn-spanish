@@ -92,8 +92,14 @@ function deck() {
 
 function currentPhrase() {
   const words = deck();
+  if (!words.length) return null;
   const index = clampIndex(save.index, words.length);
-  return words[index] || allPhrases()[0];
+  return words[index] || null;
+}
+
+function emptyPileBody() {
+  const pile = save.filter === "due" ? "due today" : "still learning";
+  return `<div class="card"><div class="es">You are caught up</div><div class="muted">Nothing ${pile} in ${escapeHtml(save.set)}. Switch to All or another set.</div></div>`;
 }
 
 function voices() {
@@ -113,7 +119,12 @@ export function speak(text) {
 
 function startSession(kind) {
   const filterDeck = save.filter === "all" ? allPhrases().filter((word) => word.set === save.set) : deck();
-  session = makeSession(filterDeck.length ? filterDeck : allPhrases(), {
+  if (!filterDeck.length) {
+    session = [];
+    toast(save.filter === "due" ? "Nothing due in this set" : "Nothing left in this pile");
+    return;
+  }
+  session = makeSession(filterDeck, {
     kind,
     setName: save.set,
     limit: 8
@@ -150,6 +161,7 @@ function listenNow() {
 
 function rateCurrent(quality) {
   const phrase = currentPhrase();
+  if (!phrase) return;
   const words = deck();
   const before = save;
   save = applyReview(save, phrase.id, quality);
@@ -280,8 +292,10 @@ function paintChromeStats() {
 
 function cardBody() {
   const words = deck();
+  if (!words.length) return emptyPileBody();
   save.index = clampIndex(save.index, words.length);
   const word = currentPhrase();
+  if (!word) return emptyPileBody();
   const card = save.cards[word.id];
   const grades = GRADE_LABELS.map((grade) =>
     `<button class="grade ${grade.id}" data-grade="${grade.id}"><span>${grade.label}</span><small>${grade.hint}</small></button>`
@@ -301,6 +315,7 @@ function cardBody() {
 
 function drillBody(kind) {
   if (!session.length) {
+    if (save.filter !== "all" && !deck().length) return emptyPileBody();
     const copy = {
       quiz: "Eight mixed questions from this set. Wrong answers come back sooner.",
       listen: "Hear the Spanish first, then pick the meaning.",
@@ -552,7 +567,8 @@ function onClick(event) {
   }
   if (target.dataset.prev !== undefined) {
     const words = deck();
-    save.index = (save.index - 1 + words.length) % Math.max(1, words.length);
+    if (!words.length) return;
+    save.index = (save.index - 1 + words.length) % words.length;
     show = false;
     persist();
     render();
@@ -560,7 +576,8 @@ function onClick(event) {
   }
   if (target.dataset.next !== undefined) {
     const words = deck();
-    save.index = (save.index + 1) % Math.max(1, words.length);
+    if (!words.length) return;
+    save.index = (save.index + 1) % words.length;
     show = false;
     persist();
     render();
@@ -645,13 +662,17 @@ function onKey(event) {
       rateCurrent(GRADE_LABELS[Number(event.key) - 1].quality);
     }
     if (event.key === "ArrowRight") {
-      save.index = (save.index + 1) % Math.max(1, deck().length);
+      const words = deck();
+      if (!words.length) return;
+      save.index = (save.index + 1) % words.length;
       show = false;
       persist();
       render();
     }
     if (event.key === "ArrowLeft") {
-      save.index = (save.index - 1 + deck().length) % Math.max(1, deck().length);
+      const words = deck();
+      if (!words.length) return;
+      save.index = (save.index - 1 + words.length) % words.length;
       show = false;
       persist();
       render();

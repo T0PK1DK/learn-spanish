@@ -17,7 +17,7 @@ Open the live link, or run `npm start` and visit `http://localhost:4173`. On iPh
 - **Quiz / Listen / Cloze** — mixed recognition with better distractors.
 - **Speak** — say or type the Spanish. Accents can be off and still count.
 - **Plaza** — a small WebGL café, market, and street. Drag to look, tap objects, finish a three-step mission.
-- **Due today / Still learning / All** — study the pile that is actually due. Mastered cards still return when SM-2 says they are due.
+- **Due today / Still learning / All** — study the pile that is actually due. Mastered cards still return when SM-2 says they are due. An empty pile says you are caught up instead of showing the whole set.
 - **Streak** — a seven-day strip of study days. The count stays live through yesterday, then drops after a gap. Best streak is kept in the save.
 - **Daily goal** — a short review target (default 12, from 4 to 40). The bar shows how many are left today.
 - **Cheer** — a short toast and a light ring when Good / Easy / a quiz hit lands. Daily goal and a continued streak take priority. Again stays quiet.

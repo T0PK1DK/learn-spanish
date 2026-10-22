@@ -49,11 +49,13 @@ Pick one lane and finish it with tests:
 
 ## Done in this improvement pass
 
-- Review undo in the header and via `Z` / `Ctrl+Z`. Tests cover restore, first-card delete, and legacy refusal.
-- Due today includes mastered cards whose interval has elapsed. Stats match the deck.
-- Persist adopts a newer `updatedAt` from another tab so a filter-only tab cannot wipe reviews. `sanitizeSave` keeps the stored timestamp.
-- Plaza fallback markup is escaped. Mission grades refresh the header stats without remounting WebGL.
-- Mobile chrome is shorter: scrolling set chips, segmented modes/filters, 44px targets, name field under Progress. Card stays the hero, same idea as compact study screens on [Quizlet](https://mobbin.com/screens/818753de-b0a1-4e66-b033-95298fa217c4) and [Ahead](https://mobbin.com/screens/8a7ef66b-d0d9-47fb-b50b-ab77d765eb61).
+- Seven-day streak strip, live streak (hides after a gap), and `bestStreak`. Old saves get best from the current streak. Legacy undo snapshots without `bestStreak` keep the stored best.
+- Labeled short daily goal with remaining count. Picker on Progress is 6 / 10 / 12 / 18. Clamp is still 4–40.
+- Light cheer on Good / Easy / quiz hits. Goal done and a continued streak take priority. Again / Hard stay quiet.
+- Progress screen (local, not a persisted mode) for streak, goal, set mastery, name, export / import.
+- Phone polish: 44px targets, notch-safe padding, shorter header so the card stays first.
+- Empty Due today / Still learning piles no longer fall back to the whole set. Learning stats are `total - mastered`. Service worker cache is `habla-v2.2`.
+- Review undo, due-after-mastery, newer-tab persist, and escaped plaza fallback stay as they were.
 
 Remaining lanes: audio pack, more plaza missions, FSRS, typing items in Quiz, chrome i18n.
 

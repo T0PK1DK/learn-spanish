@@ -1,4 +1,4 @@
-const CACHE = "habla-v2.1";
+const CACHE = "habla-v2.2";
 const FILES = [
   "./",
   "index.html",

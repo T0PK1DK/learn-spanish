@@ -309,6 +309,29 @@ test("setProgress lists every set with mastered shares", () => {
   assert.ok(rows.every((row) => row.pct >= 0 && row.pct <= 100));
 });
 
+test("stats learning matches cards that are not mastered", () => {
+  const save = emptySave(NOW);
+  save.cards["Greetings::Hola"] = {
+    ease: 2.6,
+    interval: 30,
+    reps: 6,
+    lapses: 0,
+    due: NOW + 1000,
+    learning: false
+  };
+  save.cards["Greetings::Gracias"] = {
+    ease: 2.5,
+    interval: 6,
+    reps: 2,
+    lapses: 0,
+    due: NOW + 1000,
+    learning: false
+  };
+  const stats = statsFor(save, NOW, DAY);
+  assert.equal(stats.mastered, 1);
+  assert.equal(stats.learning, stats.total - 1);
+});
+
 test("stats count a mastered card as due when its time has come", () => {
   const save = emptySave(NOW);
   save.cards["Greetings::Hola"] = {
