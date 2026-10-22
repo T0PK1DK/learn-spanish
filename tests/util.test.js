@@ -9,7 +9,8 @@ import {
   localDayKey,
   normalizeAnswer,
   shuffle,
-  uniqueBy
+  uniqueBy,
+  weekdayShort
 } from "../js/util.js";
 
 test("escapeHtml encodes markup", () => {
@@ -48,6 +49,7 @@ test("local day math stays on calendar dates", () => {
   assert.equal(day, "2026-10-21");
   assert.equal(addCalendarDays("2026-10-21", -1), "2026-10-20");
   assert.equal(addCalendarDays("2026-01-01", -1), "2025-12-31");
+  assert.equal(weekdayShort("2026-10-21"), "We");
 });
 
 test("foldAccents keeps n from ñ", () => {

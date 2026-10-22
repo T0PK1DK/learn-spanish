@@ -1,6 +1,6 @@
 import { SET_ORDER, SETS, allPhrases } from "./data/sets.js";
 import { GRADE, isMastered, newCardState, review, xpForGrade } from "./srs.js";
-import { addCalendarDays, localDayKey } from "./util.js";
+import { addCalendarDays, localDayKey, weekdayShort } from "./util.js";
 
 export const STORAGE_KEY = "habla-v2";
 export const LEGACY_KEY = "habla-v1";
@@ -17,6 +17,7 @@ export function emptySave(now = Date.now()) {
     cards: {},
     xp: 0,
     streak: 0,
+    bestStreak: 0,
     lastStudyDay: "",
     dailyGoal: 12,
     todayReviews: 0,
@@ -79,6 +80,9 @@ function sanitizeReviewEvent(event) {
       xp: Math.max(0, Math.floor(Number(event.snapshot.xp) || 0)),
       index: Math.max(0, Math.floor(Number(event.snapshot.index) || 0))
     };
+    if (Object.hasOwn(event.snapshot, "bestStreak")) {
+      next.snapshot.bestStreak = Math.max(0, Math.floor(Number(event.snapshot.bestStreak) || 0));
+    }
   }
   return next;
 }
@@ -101,6 +105,10 @@ export function sanitizeSave(raw, now = Date.now()) {
     xp: Math.max(0, Math.floor(Number(incoming.xp) || 0)),
     streak: Math.max(0, Math.floor(Number(incoming.streak) || 0)),
     lastStudyDay: /^\d{4}-\d{2}-\d{2}$/.test(incoming.lastStudyDay || "") ? incoming.lastStudyDay : "",
+    bestStreak: Math.max(
+      Math.max(0, Math.floor(Number(incoming.streak) || 0)),
+      Math.max(0, Math.floor(Number(incoming.bestStreak) || 0))
+    ),
     dailyGoal: Math.min(40, Math.max(4, Math.floor(Number(incoming.dailyGoal) || 12))),
     todayReviews: Math.max(0, Math.floor(Number(incoming.todayReviews) || 0)),
     todayXp: Math.max(0, Math.floor(Number(incoming.todayXp) || 0)),
@@ -188,6 +196,7 @@ export function applyReview(save, id, quality, now = Date.now(), day = localDayK
   const snapshot = {
     lastStudyDay: save.lastStudyDay,
     streak: save.streak,
+    bestStreak: save.bestStreak,
     todayReviews: save.todayReviews,
     todayXp: save.todayXp,
     xp: save.xp,
@@ -224,6 +233,7 @@ export function undoLastReview(save) {
     todayReviews: Number.isFinite(snap.todayReviews) ? snap.todayReviews : save.todayReviews,
     lastStudyDay: typeof snap.lastStudyDay === "string" ? snap.lastStudyDay : save.lastStudyDay,
     streak: Number.isFinite(snap.streak) ? snap.streak : save.streak,
+    bestStreak: Number.isFinite(snap.bestStreak) ? snap.bestStreak : save.bestStreak,
     index: Number.isFinite(snap.index) ? snap.index : save.index,
     reviews: save.reviews.slice(0, -1)
   };
@@ -243,8 +253,41 @@ export function stampStudyDay(save, day = localDayKey()) {
     ...save,
     lastStudyDay: day,
     streak,
+    bestStreak: Math.max(save.bestStreak || 0, streak),
     todayReviews: 1
   };
+}
+
+export function liveStreak(save, day = localDayKey()) {
+  const last = save?.lastStudyDay;
+  if (!last) return 0;
+  if (last === day || last === addCalendarDays(day, -1)) {
+    return Math.max(0, Math.floor(Number(save.streak) || 0));
+  }
+  return 0;
+}
+
+export function studiedDaySet(save) {
+  const days = new Set();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(save?.lastStudyDay || "")) days.add(save.lastStudyDay);
+  for (const event of save?.reviews || []) {
+    if (!Number.isFinite(Number(event.at))) continue;
+    days.add(localDayKey(new Date(event.at)));
+  }
+  return days;
+}
+
+export function weekMarks(save, day = localDayKey(), length = 7) {
+  const studied = studiedDaySet(save);
+  return Array.from({ length }, (_, offset) => {
+    const key = addCalendarDays(day, offset - (length - 1));
+    return {
+      day: key,
+      done: studied.has(key),
+      today: key === day,
+      label: weekdayShort(key)
+    };
+  });
 }
 
 export function statsFor(save, now = Date.now(), day = localDayKey()) {
@@ -290,7 +333,9 @@ export function statsFor(save, now = Date.now(), day = localDayKey()) {
     goal: save.dailyGoal,
     today: save.lastStudyDay === day ? save.todayReviews : 0,
     todayXp: save.lastStudyDay === day ? save.todayXp : 0,
-    streak: save.streak,
+    streak: liveStreak(save, day),
+    bestStreak: Math.max(save.bestStreak || 0, liveStreak(save, day)),
+    week: weekMarks(save, day),
     xp: save.xp
   };
 }

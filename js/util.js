@@ -94,6 +94,12 @@ export function addCalendarDays(dayKey, days) {
   return localDayKey(date);
 }
 
+export function weekdayShort(dayKey) {
+  const [year, month, day] = String(dayKey).split("-").map(Number);
+  if (!year || !month || !day) return "";
+  return ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][new Date(year, month - 1, day).getDay()];
+}
+
 export function wordId(setName, es) {
   return `${setName}::${es}`;
 }

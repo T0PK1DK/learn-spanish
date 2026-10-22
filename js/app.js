@@ -173,6 +173,13 @@ function shareApp() {
   navigator.clipboard.writeText(url).then(() => toast("Link copied")).catch(() => toast(url));
 }
 
+function weekStrip(stats) {
+  const days = (stats.week || []).map((mark) =>
+    `<span class="dot${mark.done ? " on" : ""}${mark.today ? " now" : ""}" title="${escapeHtml(mark.day)}"><small>${escapeHtml(mark.label)}</small><i></i></span>`
+  ).join("");
+  return `<div class="week" data-week aria-label="Study days this week">${days}</div>`;
+}
+
 function statsTiles(stats) {
   return `
     <span class="stat"><strong>${stats.streak}</strong>streak</span>
@@ -206,6 +213,7 @@ function chromeHtml(stats) {
       </div>
     </div>
     <div class="stats" data-stats>${statsTiles(stats)}</div>
+    ${weekStrip(stats)}
     <div class="goal" aria-label="Daily goal"><span style="width:${goalPct}%"></span></div>
     <div class="scroll-tabs" role="tablist" aria-label="Phrase sets">${tabs}</div>
     <div class="segment modes" role="tablist" aria-label="Study mode">${modes}</div>
@@ -217,6 +225,8 @@ function paintChromeStats() {
   if (!host) return;
   const stats = statsFor(save);
   host.innerHTML = statsTiles(stats);
+  const week = document.querySelector("[data-week]");
+  if (week) week.outerHTML = weekStrip(stats);
   const goal = document.querySelector(".goal span");
   if (goal) goal.style.width = `${Math.min(100, Math.round((stats.today / stats.goal) * 100))}%`;
   const undo = document.querySelector("[data-undo]");

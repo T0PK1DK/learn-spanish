@@ -119,6 +119,33 @@ h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -0.03em; }
   background: var(--ink);
   color: #111;
 }
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0 0 8px;
+}
+.week .dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+.week i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2a2621;
+  border: 1px solid var(--line);
+}
+.week .on i {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.week .now small { color: var(--ink); font-weight: 650; }
 .bar, .goal {
   height: 4px;
   background: #2a2621;
