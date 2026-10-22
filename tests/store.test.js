@@ -8,10 +8,15 @@ import {
   emptySave,
   migrateLegacy,
   parseImport,
+  goalState,
+  liveStreak,
   persistSave,
   sanitizeSave,
+  setDailyGoal,
+  setProgress,
   statsFor,
-  undoLastReview
+  undoLastReview,
+  weekMarks
 } from "../js/store.js";
 
 const NOW = Date.parse("2026-10-21T15:00:00Z");
@@ -164,6 +169,167 @@ test("a stale tab persist keeps newer reviews from the other tab", () => {
   assert.ok(written.cards["Greetings::Hola"]);
   assert.equal(written.filter, "all");
   assert.equal(written.reviews.length, 1);
+});
+
+test("live streak stays if yesterday was studied and dies after a gap", () => {
+  const save = emptySave(NOW);
+  save.streak = 4;
+  save.lastStudyDay = "2026-10-20";
+  assert.equal(liveStreak(save, "2026-10-21"), 4);
+  save.lastStudyDay = "2026-10-18";
+  assert.equal(liveStreak(save, "2026-10-21"), 0);
+  assert.equal(statsFor(save, NOW, "2026-10-21").streak, 0);
+  assert.equal(save.streak, 4);
+});
+
+test("weekMarks is seven days ending today and marks lastStudyDay", () => {
+  const save = emptySave(NOW);
+  save.lastStudyDay = "2026-10-21";
+  const week = weekMarks(save, "2026-10-21");
+  assert.equal(week.length, 7);
+  assert.equal(week[0].day, "2026-10-15");
+  assert.equal(week[6].day, "2026-10-21");
+  assert.equal(week[6].done, true);
+  assert.equal(week[6].today, true);
+  assert.equal(week[5].done, false);
+  assert.equal(week[6].label, "We");
+});
+
+test("best streak is kept when a later streak resets", () => {
+  let save = emptySave(NOW);
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, "2026-10-18");
+  save = applyReview(save, "Greetings::Gracias", GRADE.good, NOW, "2026-10-19");
+  assert.equal(save.streak, 2);
+  assert.equal(save.bestStreak, 2);
+  save = applyReview(save, "Greetings::Adiós", GRADE.good, NOW, "2026-10-21");
+  assert.equal(save.streak, 1);
+  assert.equal(save.bestStreak, 2);
+});
+
+test("sanitizeSave promotes a missing bestStreak from the current streak", () => {
+  const save = sanitizeSave({
+    version: 2,
+    streak: 5,
+    lastStudyDay: "2026-10-21",
+    updatedAt: NOW
+  }, NOW);
+  assert.equal(save.bestStreak, 5);
+});
+
+test("undo restores bestStreak from the review snapshot", () => {
+  let save = emptySave(NOW);
+  save.streak = 3;
+  save.bestStreak = 3;
+  save.lastStudyDay = "2026-10-20";
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, "2026-10-21");
+  assert.equal(save.streak, 4);
+  assert.equal(save.bestStreak, 4);
+  save = undoLastReview(save);
+  assert.equal(save.streak, 3);
+  assert.equal(save.bestStreak, 3);
+});
+
+test("legacy undo snapshots without bestStreak keep the stored best", () => {
+  const save = emptySave(NOW);
+  save.bestStreak = 6;
+  save.cards["Greetings::Hola"] = { ease: 2.6, interval: 6, reps: 2, lapses: 0, due: NOW, learning: false };
+  save.reviews = [{
+    id: "Greetings::Hola",
+    quality: GRADE.good,
+    at: NOW,
+    previous: { ease: 2.5, interval: 1, reps: 1, lapses: 0, due: NOW, learning: false },
+    snapshot: { lastStudyDay: "2026-10-21", streak: 1, todayReviews: 1, todayXp: 10, xp: 10, index: 0 }
+  }];
+  const undone = undoLastReview(save);
+  assert.equal(undone.bestStreak, 6);
+});
+
+test("goalState counts remaining reviews on a short daily target", () => {
+  let save = setDailyGoal(emptySave(NOW), 6);
+  assert.equal(save.dailyGoal, 6);
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, DAY);
+  const goal = goalState(save, DAY);
+  assert.equal(goal.today, 1);
+  assert.equal(goal.remaining, 5);
+  assert.equal(goal.done, false);
+  assert.equal(statsFor(save, NOW, DAY).remaining, 5);
+});
+
+test("goalState is done once today meets the target", () => {
+  let save = setDailyGoal(emptySave(NOW), 4);
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, DAY);
+  save = applyReview(save, "Greetings::Gracias", GRADE.good, NOW, DAY);
+  save = applyReview(save, "Greetings::Adiós", GRADE.good, NOW, DAY);
+  save = applyReview(save, "Greetings::Buenos días", GRADE.again, NOW, DAY);
+  const goal = goalState(save, DAY);
+  assert.equal(goal.today, 4);
+  assert.equal(goal.remaining, 0);
+  assert.equal(goal.done, true);
+  assert.equal(goal.pct, 100);
+});
+
+test("a new calendar day starts the short goal at zero", () => {
+  let save = setDailyGoal(emptySave(NOW), 6);
+  save = applyReview(save, "Greetings::Hola", GRADE.good, NOW, "2026-10-20");
+  const goal = goalState(save, DAY);
+  assert.equal(goal.today, 0);
+  assert.equal(goal.remaining, 6);
+  assert.equal(goal.done, false);
+});
+
+test("setDailyGoal clamps to the same short range as sanitize", () => {
+  assert.equal(setDailyGoal(emptySave(NOW), 2).dailyGoal, 4);
+  assert.equal(setDailyGoal(emptySave(NOW), 99).dailyGoal, 40);
+  assert.equal(setDailyGoal(emptySave(NOW), 10).dailyGoal, 10);
+  const save = sanitizeSave({ version: 2, dailyGoal: 3, updatedAt: NOW }, NOW);
+  assert.equal(save.dailyGoal, 4);
+});
+
+test("changing the daily goal keeps today's reviews and cards", () => {
+  let save = applyReview(emptySave(NOW), "Greetings::Hola", GRADE.good, NOW, DAY);
+  const card = save.cards["Greetings::Hola"];
+  save = setDailyGoal(save, 18);
+  assert.equal(save.dailyGoal, 18);
+  assert.equal(save.todayReviews, 1);
+  assert.deepEqual(save.cards["Greetings::Hola"], card);
+  assert.equal(goalState(save, DAY).today, 1);
+});
+
+test("setProgress lists every set with mastered shares", () => {
+  const save = emptySave(NOW);
+  save.cards["Greetings::Hola"] = {
+    ease: 2.6, interval: 30, reps: 6, lapses: 0, due: NOW + 1000, learning: false
+  };
+  const rows = setProgress(statsFor(save, NOW, DAY));
+  assert.ok(rows.length >= 8);
+  const greetings = rows.find((row) => row.name === "Greetings");
+  assert.equal(greetings.mastered, 1);
+  assert.ok(greetings.total > greetings.mastered);
+  assert.ok(greetings.pct > 0);
+  assert.ok(rows.every((row) => row.pct >= 0 && row.pct <= 100));
+});
+
+test("stats learning matches cards that are not mastered", () => {
+  const save = emptySave(NOW);
+  save.cards["Greetings::Hola"] = {
+    ease: 2.6,
+    interval: 30,
+    reps: 6,
+    lapses: 0,
+    due: NOW + 1000,
+    learning: false
+  };
+  save.cards["Greetings::Gracias"] = {
+    ease: 2.5,
+    interval: 6,
+    reps: 2,
+    lapses: 0,
+    due: NOW + 1000,
+    learning: false
+  };
+  const stats = statsFor(save, NOW, DAY);
+  assert.equal(stats.mastered, 1);
+  assert.equal(stats.learning, stats.total - 1);
 });
 
 test("stats count a mastered card as due when its time has come", () => {

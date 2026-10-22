@@ -1,9 +1,10 @@
-const CACHE = "habla-v2.1";
+const CACHE = "habla-v2.2";
 const FILES = [
   "./",
   "index.html",
   "css/app.css",
   "js/app.js",
+  "js/celebrate.js",
   "js/util.js",
   "js/srs.js",
   "js/store.js",

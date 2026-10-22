@@ -1,10 +1,14 @@
 import { SET_ORDER, SETS, allPhrases } from "./data/sets.js";
 import { GRADE, isMastered, newCardState, review, xpForGrade } from "./srs.js";
-import { addCalendarDays, localDayKey } from "./util.js";
+import { addCalendarDays, localDayKey, weekdayShort } from "./util.js";
 
 export const STORAGE_KEY = "habla-v2";
 export const LEGACY_KEY = "habla-v1";
 export const CURRENT_VERSION = 2;
+export const GOAL_CHOICES = [6, 10, 12, 18];
+export const MIN_DAILY_GOAL = 4;
+export const MAX_DAILY_GOAL = 40;
+export const DEFAULT_DAILY_GOAL = 12;
 
 export function emptySave(now = Date.now()) {
   return {
@@ -17,8 +21,9 @@ export function emptySave(now = Date.now()) {
     cards: {},
     xp: 0,
     streak: 0,
+    bestStreak: 0,
     lastStudyDay: "",
-    dailyGoal: 12,
+    dailyGoal: DEFAULT_DAILY_GOAL,
     todayReviews: 0,
     todayXp: 0,
     reviews: [],
@@ -79,6 +84,9 @@ function sanitizeReviewEvent(event) {
       xp: Math.max(0, Math.floor(Number(event.snapshot.xp) || 0)),
       index: Math.max(0, Math.floor(Number(event.snapshot.index) || 0))
     };
+    if (Object.hasOwn(event.snapshot, "bestStreak")) {
+      next.snapshot.bestStreak = Math.max(0, Math.floor(Number(event.snapshot.bestStreak) || 0));
+    }
   }
   return next;
 }
@@ -101,7 +109,11 @@ export function sanitizeSave(raw, now = Date.now()) {
     xp: Math.max(0, Math.floor(Number(incoming.xp) || 0)),
     streak: Math.max(0, Math.floor(Number(incoming.streak) || 0)),
     lastStudyDay: /^\d{4}-\d{2}-\d{2}$/.test(incoming.lastStudyDay || "") ? incoming.lastStudyDay : "",
-    dailyGoal: Math.min(40, Math.max(4, Math.floor(Number(incoming.dailyGoal) || 12))),
+    bestStreak: Math.max(
+      Math.max(0, Math.floor(Number(incoming.streak) || 0)),
+      Math.max(0, Math.floor(Number(incoming.bestStreak) || 0))
+    ),
+    dailyGoal: clampDailyGoal(incoming.dailyGoal),
     todayReviews: Math.max(0, Math.floor(Number(incoming.todayReviews) || 0)),
     todayXp: Math.max(0, Math.floor(Number(incoming.todayXp) || 0)),
     cards: {},
@@ -188,6 +200,7 @@ export function applyReview(save, id, quality, now = Date.now(), day = localDayK
   const snapshot = {
     lastStudyDay: save.lastStudyDay,
     streak: save.streak,
+    bestStreak: save.bestStreak,
     todayReviews: save.todayReviews,
     todayXp: save.todayXp,
     xp: save.xp,
@@ -224,8 +237,31 @@ export function undoLastReview(save) {
     todayReviews: Number.isFinite(snap.todayReviews) ? snap.todayReviews : save.todayReviews,
     lastStudyDay: typeof snap.lastStudyDay === "string" ? snap.lastStudyDay : save.lastStudyDay,
     streak: Number.isFinite(snap.streak) ? snap.streak : save.streak,
+    bestStreak: Number.isFinite(snap.bestStreak) ? snap.bestStreak : save.bestStreak,
     index: Number.isFinite(snap.index) ? snap.index : save.index,
     reviews: save.reviews.slice(0, -1)
+  };
+}
+
+export function clampDailyGoal(value) {
+  const n = Math.floor(Number(value) || DEFAULT_DAILY_GOAL);
+  return Math.min(MAX_DAILY_GOAL, Math.max(MIN_DAILY_GOAL, n));
+}
+
+export function setDailyGoal(save, value) {
+  return { ...save, dailyGoal: clampDailyGoal(value) };
+}
+
+export function goalState(save, day = localDayKey()) {
+  const goal = clampDailyGoal(save?.dailyGoal);
+  const today = save?.lastStudyDay === day ? Math.max(0, Math.floor(Number(save.todayReviews) || 0)) : 0;
+  const remaining = Math.max(0, goal - today);
+  return {
+    goal,
+    today,
+    remaining,
+    done: today >= goal,
+    pct: Math.min(100, Math.round((today / goal) * 100))
   };
 }
 
@@ -243,8 +279,41 @@ export function stampStudyDay(save, day = localDayKey()) {
     ...save,
     lastStudyDay: day,
     streak,
+    bestStreak: Math.max(save.bestStreak || 0, streak),
     todayReviews: 1
   };
+}
+
+export function liveStreak(save, day = localDayKey()) {
+  const last = save?.lastStudyDay;
+  if (!last) return 0;
+  if (last === day || last === addCalendarDays(day, -1)) {
+    return Math.max(0, Math.floor(Number(save.streak) || 0));
+  }
+  return 0;
+}
+
+export function studiedDaySet(save) {
+  const days = new Set();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(save?.lastStudyDay || "")) days.add(save.lastStudyDay);
+  for (const event of save?.reviews || []) {
+    if (!Number.isFinite(Number(event.at))) continue;
+    days.add(localDayKey(new Date(event.at)));
+  }
+  return days;
+}
+
+export function weekMarks(save, day = localDayKey(), length = 7) {
+  const studied = studiedDaySet(save);
+  return Array.from({ length }, (_, offset) => {
+    const key = addCalendarDays(day, offset - (length - 1));
+    return {
+      day: key,
+      done: studied.has(key),
+      today: key === day,
+      label: weekdayShort(key)
+    };
+  });
 }
 
 export function statsFor(save, now = Date.now(), day = localDayKey()) {
@@ -259,14 +328,6 @@ export function statsFor(save, now = Date.now(), day = localDayKey()) {
   for (const phrase of phrases) {
     const card = save.cards[phrase.id];
     const bucket = bySet[phrase.set];
-    if (!card || card.learning || card.reps === 0) {
-      learning += 1;
-      if (!card || card.due <= now) {
-        due += 1;
-        bucket.due += 1;
-      }
-      continue;
-    }
     if (isMastered(card)) {
       mastered += 1;
       bucket.mastered += 1;
@@ -276,23 +337,43 @@ export function statsFor(save, now = Date.now(), day = localDayKey()) {
       }
       continue;
     }
-    if (card.due <= now) {
+    learning += 1;
+    if (!card || card.due <= now) {
       due += 1;
       bucket.due += 1;
     }
   }
+  const goal = goalState(save, day);
   return {
     total: phrases.length,
     due,
     learning,
     mastered,
     bySet,
-    goal: save.dailyGoal,
-    today: save.lastStudyDay === day ? save.todayReviews : 0,
+    goal: goal.goal,
+    today: goal.today,
+    remaining: goal.remaining,
+    goalDone: goal.done,
+    goalPct: goal.pct,
     todayXp: save.lastStudyDay === day ? save.todayXp : 0,
-    streak: save.streak,
+    streak: liveStreak(save, day),
+    bestStreak: Math.max(save.bestStreak || 0, liveStreak(save, day)),
+    week: weekMarks(save, day),
     xp: save.xp
   };
+}
+
+export function setProgress(stats) {
+  return SET_ORDER.map((name) => {
+    const count = stats?.bySet?.[name] || { total: 0, mastered: 0, due: 0 };
+    return {
+      name,
+      mastered: count.mastered,
+      total: count.total,
+      due: count.due,
+      pct: count.total ? Math.round((count.mastered / count.total) * 100) : 0
+    };
+  });
 }
 
 export function awardPlaza(save, ids, now = Date.now(), day = localDayKey()) {
